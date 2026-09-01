@@ -1,25 +1,54 @@
-# 🚀 CI/CD & DevSecOps Pipeline (`ci-cd-kube`)
+# 🚀 DevSecOps Golden Starter & Cloud-Native Framework (`ci-cd-kube`)
 
-![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=github-actions&logoColor=white)
-![Security-OWASP](https://img.shields.io/badge/Security-OWASP_ZAP_DAST-red?logo=owasp&logoColor=white)
-![Security-Gitleaks](https://img.shields.io/badge/Security-Gitleaks-critical?logo=git&logoColor=white)
-![Tests-Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?logo=playwright&logoColor=white)
-![Security-Trivy](https://img.shields.io/badge/Security-Trivy_CVE_Scan-blue?logo=aquasecurity&logoColor=white)
-![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
+![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-GitHub_Actions_100%25_Passing-2088FF?logo=github-actions&logoColor=white)
+![Security-Gitleaks](https://img.shields.io/badge/Security-Gitleaks_Zero_Secrets-critical?logo=git&logoColor=white)
+![Security-SAST](https://img.shields.io/badge/SAST-Semgrep_OWASP_Top_10-brightgreen?logo=semgrep&logoColor=white)
+![Security-DAST](https://img.shields.io/badge/DAST-OWASP_ZAP_Live_Scan-red?logo=owasp&logoColor=white)
+![Tests-Playwright](https://img.shields.io/badge/E2E-Playwright_Chromium-2EAD33?logo=playwright&logoColor=white)
+![Security-Trivy](https://img.shields.io/badge/Security-Trivy_Zero_High_CVEs-blue?logo=aquasecurity&logoColor=white)
+![Docker](https://img.shields.io/badge/Container-Docker_Alpine_Multi--Stage-2496ED?logo=docker&logoColor=white)
 ![Registry](https://img.shields.io/badge/Registry-GHCR-181717?logo=github&logoColor=white)
-![Alerting](https://img.shields.io/badge/Alerts-Google_Chat-00AC47?logo=googlechat&logoColor=white)
+![Alerts](https://img.shields.io/badge/Alerts-Google_Chat_SOAR-00AC47?logo=googlechat&logoColor=white)
 
-Enterprise Continuous Integration (CI) and Secure Containerization pipeline enforcing **OWASP-Hardened DevSecOps quality gates** (actions/checkout@v4, Gitleaks, actions/setup-node@v4, npm ci, ESLint, npm audit, Semgrep SAST OWASP Top-10, **Unit Tests**, **Integration Tests**, **Playwright E2E Tests**, **OWASP ZAP DAST scan**, Hadolint, Trivy CVE scan), versioned GHCR image publishing, and real-time Google Chat alerting.
+Enterprise **DevSecOps Golden Template** & dynamic scaffolding engine designed to bootstrap any new startup project with **Shift-Left security gates**, **3-tier testing (Jest, Supertest, Playwright)**, **OWASP SAST & DAST**, **Docker multi-stage containerization**, and automated **GHCR registry publishing** from Day 1.
 
 ---
 
-## 📑 Architecture & UML Activity Diagram
+## ⚡ Quick Start: Interactive Project Wizard
 
-For a complete breakdown and printable presentation view:
-- 📖 **Architecture Document**: [docs/architecture/pipeline_architecture.md](docs/architecture/pipeline_architecture.md)
-- 🖨️ **Printable / PDF Exportable HTML Diagram**: [docs/architecture/pipeline_diagram.html](docs/architecture/pipeline_diagram.html)
+When cloning this template to start a new project, run the interactive CLI wizard:
 
-### 📊 Master Pipeline Workflow (OWASP Hardened)
+```bash
+npm run init
+```
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│  🚀 DEVSECOPS GOLDEN STARTER — Dynamic Project Scaffolder        │
+│  Enterprise Shift-Left Security, CI/CD & Testing Boilerplate     │
+└──────────────────────────────────────────────────────────────────┘
+
+? Project Name: my-saas-app
+? Choose Framework:
+  ● Express.js   (Battle-tested, lightweight, minimal)
+  ○ Hono         (Ultrafast, modern Web Standards, TypeScript-first)
+  ○ NestJS       (Enterprise architecture, TypeScript, modular)
+  ○ Next.js      (Fullstack React, App Router, SSR & APIs)
+
+? Choose Database:
+  ● PostgreSQL   (Prisma ORM + CI Test Service Container)
+  ○ MongoDB      (Mongoose / Mongo CI Service)
+  ○ None         (Stateless / In-memory)
+
+⚙️ Generating customized boilerplate...
+  ✔ Generated tailored .github/workflows/ci-cd.yml
+  ✔ Generated optimized multi-stage Dockerfile
+  ✔ Configured database test services in CI
+```
+
+---
+
+## 📊 Live DevSecOps CI/CD Workflow
 
 ```mermaid
 flowchart TD
@@ -69,14 +98,32 @@ flowchart TD
 
 ---
 
-## 🎯 Image Versioning Strategy
+## 🛠️ Local Developer Commands
 
-| Git Trigger | Target Git Ref | Generated Image Tag(s) | Target Environment |
-|---|---|---|---|
-| **Branch Push** | `refs/heads/main` | `ghcr.io/<owner>/ci-cd-kube:dev-<sha>`<br/>`ghcr.io/<owner>/ci-cd-kube:dev-latest` | **Development** |
-| **Git Tag** | `refs/tags/v*` (e.g. `v1.0.0`) | `ghcr.io/<owner>/ci-cd-kube:1.0.0`<br/>`ghcr.io/<owner>/ci-cd-kube:latest` | **Production** |
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Starts local development server with hot-reload on `http://localhost:3000` |
+| `npm run lint` | Validates code standards & formatting via ESLint |
+| `npm test` | Executes both **Jest Unit** and **Supertest Integration** test suites |
+| `npm run test:unit` | Executes pure logic unit tests in isolation |
+| `npm run test:integration` | Executes HTTP route, healthcheck, and security header tests |
+| `npm run test:e2e` | Launches **Playwright** headless browser for end-to-end user journeys |
+| `npm run scan:secrets` | Runs **Gitleaks** locally to detect secret leaks before committing |
+| `npm run scan:sast` | Runs **Semgrep OWASP Top-10** security analysis locally |
+| `npm run init` | Launches interactive project scaffolder CLI |
 
 ---
 
-## 📋 Implementation Roadmap & Kanban Board
-Track project progress on the [GitHub Project Kanban Board](https://github.com/users/konstantine-garozashvili/projects/21).
+## 🎯 Container Versioning & Registry (GHCR)
+
+| Git Trigger | Target Git Ref | Published Image Tag(s) | Environment |
+|---|---|---|---|
+| **Branch Push** | `refs/heads/main` | `ghcr.io/<owner>/ci-cd-kube:dev-<sha>`<br/>`ghcr.io/<owner>/ci-cd-kube:dev-latest` | **Development** |
+| **Release Tag** | `refs/tags/v*` (e.g. `v1.0.0`) | `ghcr.io/<owner>/ci-cd-kube:1.0.0`<br/>`ghcr.io/<owner>/ci-cd-kube:latest` | **Production** |
+
+---
+
+## 📋 Architecture & Documentation
+- 📖 [Pipeline Architectural Specification](docs/architecture/pipeline_architecture.md)
+- 🖨️ [Printable / PDF Exportable HTML Diagram](docs/architecture/pipeline_diagram.html)
+- 📋 [GitHub Project Kanban Board](https://github.com/users/konstantine-garozashvili/projects/21)
