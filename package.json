@@ -31,7 +31,8 @@
     "smoke": "node scripts/smoke.js",
     "smoke:quick": "node scripts/smoke.js --quick",
     "scan:secrets": "gitleaks detect --verbose --redact",
-    "scan:sast": "semgrep scan --config=\"p/owasp-top-ten\" bin lib"
+    "scan:sast": "semgrep scan --config=\"p/owasp-top-ten\" bin lib",
+    "check:actions": "node scripts/check-actions.js"
   },
   "keywords": [
     "scaffolding",

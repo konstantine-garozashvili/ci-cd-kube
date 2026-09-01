@@ -60,6 +60,14 @@ jobs:
       - name: 🧪 Generator unit tests
         run: npm run test:coverage
 
+      # A pinned action tag that does not exist fails a generated project's very
+      # first pipeline run, with an error that points at the workflow rather
+      # than at this scaffolder. Catch it here instead.
+      - name: 🔗 Verify every generated action reference resolves
+        run: npm run check:actions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # =========================================================================
   # Scaffold real projects and run THEIR gates against them.
   #

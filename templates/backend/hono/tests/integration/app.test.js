@@ -1,6 +1,11 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { app } from '../../src/app.js';
+
+// Set before importing the app so its config picks this up and the request
+// logger stays quiet. A "NODE_ENV=test node ..." prefix in the npm script
+// would not run on Windows, so the environment is set here instead.
+process.env.NODE_ENV = 'test';
+const { app } = await import('../../src/app.js');
 
 describe('Integration: health and API routes', () => {
   test('GET /healthz returns UP', async () => {
