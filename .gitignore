@@ -1,16 +1,32 @@
 # Dependencies
 node_modules/
-package-lock.json
 
-# Environment variables
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Environment variables — .env.example IS committed, real secrets are not
 .env
 .env.local
+.env.*.local
 
-# Test & Coverage artifacts
+# Test & coverage artifacts
 coverage/
 playwright-report/
 test-results/
+.nyc_output/
 
-# System
+# Editor & OS noise
 .DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Logs
 *.log
+npm-debug.log*
+
+# Scaffolder smoke-test output
+.smoke/

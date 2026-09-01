@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Empty by default: requests go to this origin and Vite (dev) or nginx (prod) proxies them to the API.
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+const API_LABEL = API_BASE || 'same-origin proxy';
 
 export default function App() {
   const [activeRoute, setActiveRoute] = useState('/healthz');
@@ -34,7 +36,7 @@ export default function App() {
       <div className="card" id="app-card">
         <div className="header">
           <h1 id="app-title">🏛️ La Plateforme Fullstack Starter</h1>
-          <p className="subtitle">React + Vite Frontend connected to Backend API ({API_BASE})</p>
+          <p className="subtitle">React + Vite Frontend connected to Backend API ({API_LABEL})</p>
           <div className="status-badge" id="status-badge">
             <span className="pulse"></span> System Operational
           </div>

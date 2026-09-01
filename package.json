@@ -1,8 +1,7 @@
 {
   "name": "laplateforme-starter",
-  "version": "1.0.6",
-  "description": "La Plateforme Starter - Enterprise DevSecOps Scaffolding Engine & Cloud-Native Starter Framework",
-  "main": "src/server.js",
+  "version": "2.0.0",
+  "description": "Scaffold a production-ready Node.js project: security gates, CI/CD, tests and containers that work from the first commit",
   "bin": {
     "laplateforme-starter": "./bin/cli.js",
     "laplateforme": "./bin/cli.js",
@@ -10,69 +9,57 @@
   },
   "files": [
     "bin",
-    "src",
+    "lib",
     "templates",
-    "tests",
-    ".eslintrc.json",
-    ".prettierrc",
-    ".gitleaks.toml",
-    ".semgrepignore",
-    ".dockerignore",
-    "jest.config.js",
-    "playwright.config.js",
-    "Dockerfile",
-    ".env.example",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\" \"bin/**/*.js\" \"templates/**/*.js\"",
-    "lint:fix": "eslint \"src/**/*.js\" \"tests/**/*.js\" \"bin/**/*.js\" \"templates/**/*.js\" --fix",
-    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" \"*.js\"",
-    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" \"*.js\"",
-    "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "jest tests/unit --runInBand",
-    "test:integration": "jest tests/integration --runInBand",
+    "lint": "eslint \"bin/**/*.js\" \"lib/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\"",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "prettier --write \"{bin,lib,scripts,tests}/**/*.js\" \"*.{json,md}\"",
+    "format:check": "prettier --check \"{bin,lib,scripts,tests}/**/*.js\" \"*.{json,md}\"",
+    "test": "jest",
     "test:coverage": "jest --coverage",
-    "test:e2e": "playwright test",
-    "init": "node bin/cli.js",
-    "scan:secrets": "gitleaks detect --verbose",
-    "scan:sast": "semgrep scan --config=\"p/owasp-top-ten\" src"
+    "smoke": "node scripts/smoke.js",
+    "smoke:quick": "node scripts/smoke.js --quick",
+    "scan:secrets": "gitleaks detect --verbose --redact",
+    "scan:sast": "semgrep scan --config=\"p/owasp-top-ten\" bin lib"
   },
   "keywords": [
-    "laplateforme",
-    "laplateforme-starter",
-    "devsecops",
     "scaffolding",
+    "generator",
+    "starter",
+    "devsecops",
     "ci-cd",
+    "boilerplate",
     "express",
     "hono",
     "nestjs",
     "nextjs",
-    "gitleaks",
-    "trivy",
-    "owasp",
+    "react",
+    "vue",
+    "prisma",
     "playwright",
-    "jest"
+    "docker"
   ],
   "author": "Konstantine Garozashvili",
   "license": "MIT",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "express-rate-limit": "^7.2.0",
-    "helmet": "^7.1.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/konstantine/ci-cd-kube.git"
   },
   "devDependencies": {
-    "@playwright/test": "^1.44.0",
     "eslint": "^8.57.0",
     "jest": "^29.7.0",
-    "prettier": "^3.2.5",
-    "supertest": "^7.0.0"
+    "js-yaml": "^5.4.1",
+    "prettier": "^3.2.5"
   }
 }

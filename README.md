@@ -1,133 +1,179 @@
-# 🚀 DevSecOps Golden Starter & Cloud-Native Framework (`ci-cd-kube`)
+# 🏛️ laplateforme-starter
 
-![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-GitHub_Actions_100%25_Passing-2088FF?logo=github-actions&logoColor=white)
-![Security-Gitleaks](https://img.shields.io/badge/Security-Gitleaks_Zero_Secrets-critical?logo=git&logoColor=white)
-![Security-SAST](https://img.shields.io/badge/SAST-Semgrep_OWASP_Top_10-brightgreen?logo=semgrep&logoColor=white)
-![Security-DAST](https://img.shields.io/badge/DAST-OWASP_ZAP_Live_Scan-red?logo=owasp&logoColor=white)
-![Tests-Playwright](https://img.shields.io/badge/E2E-Playwright_Chromium-2EAD33?logo=playwright&logoColor=white)
-![Security-Trivy](https://img.shields.io/badge/Security-Trivy_Zero_High_CVEs-blue?logo=aquasecurity&logoColor=white)
-![Docker](https://img.shields.io/badge/Container-Docker_Alpine_Multi--Stage-2496ED?logo=docker&logoColor=white)
-![Registry](https://img.shields.io/badge/Registry-GHCR-181717?logo=github&logoColor=white)
-![Alerts](https://img.shields.io/badge/Alerts-Google_Chat_SOAR-00AC47?logo=googlechat&logoColor=white)
-
-Enterprise **DevSecOps Golden Template** & dynamic scaffolding engine designed to bootstrap any new startup project with **Shift-Left security gates**, **3-tier testing (Jest, Supertest, Playwright)**, **OWASP SAST & DAST**, **Docker multi-stage containerization**, and automated **GHCR registry publishing** from Day 1.
-
----
-
-## ⚡ Quick Start: Interactive Project Wizard
-
-When starting any new project in the future, run:
+Scaffold a production-ready Node.js project whose security gates, CI/CD
+pipeline, tests and container images **work from the first commit**.
 
 ```bash
-npx laplateforme-starter my-new-app
+npx laplateforme-starter my-app
 ```
-*(or run directly in current directory)*:
+
+That's it. You get a project that passes its own `npm run lint`, `npm test`,
+`npm run test:e2e` and `npm run build` before you write a single line — and a
+GitHub Actions pipeline that goes green on the first push.
+
+---
+
+## What you can generate
+
+|              | Options                                                                                |
+| ------------ | -------------------------------------------------------------------------------------- |
+| **Backend**  | Express · Hono (ESM) · NestJS (TypeScript)                                             |
+| **Frontend** | React + Vite · Vue 3 + Vite · Vanilla + Vite · Next.js (App Router, TypeScript) · none |
+| **Database** | PostgreSQL (Prisma) · MongoDB (Mongoose) · none                                        |
+
+Every combination is verified in CI — see [Keeping it honest](#keeping-it-honest).
+
+## Usage
+
 ```bash
-npx laplateforme-starter init
+# Interactive wizard
+npx laplateforme-starter my-app
+
+# Non-interactive
+npx laplateforme-starter my-api \
+  --backend=hono --frontend=none --database=none
+
+# Into the current directory
+npx laplateforme-starter . --defaults
 ```
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│  🏛️  LA PLATEFORME — Enterprise DevSecOps Scaffolder              │
-│  Zero-Config Security, CI/CD, Testing & Cloud-Native Boilerplate │
-└──────────────────────────────────────────────────────────────────┘
+| Flag                | Effect                                              |
+| ------------------- | --------------------------------------------------- |
+| `-y`, `--defaults`  | Accept every default without prompting              |
+| `--backend=<name>`  | `express` \| `hono` \| `nestjs`                     |
+| `--frontend=<name>` | `react` \| `vue` \| `vanilla` \| `nextjs` \| `none` |
+| `--database=<name>` | `postgres` \| `mongodb` \| `none`                   |
+| `--no-install`      | Skip `npm install`                                  |
+| `--no-git`          | Skip `git init` and the initial commit              |
+| `--force`           | Scaffold into a non-empty directory                 |
 
-? Project Name: my-saas-app
-? Choose Framework:
-  ● Express.js   (Battle-tested, lightweight, minimal)
-  ○ Hono         (Ultrafast, modern Web Standards, TypeScript-first)
-  ○ NestJS       (Enterprise architecture, TypeScript, modular)
-  ○ Next.js      (Fullstack React, App Router, SSR & APIs)
+Piping or running without a TTY behaves like `--defaults` rather than hanging
+on a prompt.
 
-? Choose Database:
-  ● PostgreSQL   (Prisma ORM + CI Test Service Container)
-  ○ MongoDB      (Mongoose / Mongo CI Service)
-  ○ None         (Stateless / In-memory)
+## What lands in a generated project
 
-⚙️ Generating customized boilerplate...
-  ✔ Generated tailored .github/workflows/ci-cd.yml
-  ✔ Generated optimized multi-stage Dockerfile
-  ✔ Configured database test services in CI
+**Application**
+
+- Health probes with correct Kubernetes semantics — `/healthz` never checks
+  dependencies, `/ready` returns 503 when the database is unreachable.
+- A swappable database adapter: the same three functions whichever database you
+  picked, so no route code changes between them.
+- Graceful shutdown that drains in-flight requests on `SIGTERM`.
+- Helmet, CORS and rate limiting, with health probes exempt from the limiter.
+
+**Developer environment**
+
+- `.nvmrc`, `engines`, `.editorconfig`, Prettier and ESLint configured per
+  workspace — including JSX, Vue SFC and TypeScript parsers that actually parse.
+- Husky hooks: `lint-staged` plus `gitleaks protect` on pre-commit, and a
+  Conventional Commits check on `commit-msg`.
+- A generated `README.md` explaining the project's own scripts and layout.
+- `docker compose up` for the whole stack, with healthchecks and named volumes.
+
+**Pipeline** (`.github/workflows/ci-cd.yml`)
+
+- Gates **pull requests**, not just pushes to main.
+- Gitleaks → Prettier → ESLint → `npm audit` → Semgrep → unit → integration →
+  Playwright → hadolint → build → Trivy → publish.
+- Images are scanned **before** they are published, and never published from a
+  pull request.
+- Optional Google Chat notification; without the secret it logs a note and passes.
+
+See [`docs/architecture/pipeline_architecture.md`](docs/architecture/pipeline_architecture.md)
+for the full pipeline reference.
+
+## Design decisions worth knowing
+
+**`package-lock.json` is committed.** `npm ci` cannot run without it, so
+gitignoring the lockfile breaks CI on the first push. Generated `.gitignore`
+files deliberately leave it in.
+
+**Docker builds run from the repository root.** npm workspaces keep one
+lockfile at the root, so a build context of `./backend` has no lockfile to
+install from. Both Dockerfiles are used as `docker build -f backend/Dockerfile .`.
+
+**Dev dependencies are pruned, not skipped.** The backend image runs a full
+`npm ci`, builds, runs `postinstall` code generation (Prisma's client), and only
+then runs `npm prune --omit=dev`. Installing with `--omit=dev` up front fails
+before code generation can happen.
+
+**Frontends proxy the API on their own origin.** Vite proxies in development,
+nginx proxies in the container, and Next.js rewrites. The browser never makes a
+cross-origin request, so there is no CORS to misconfigure — and the E2E API
+suite runs through that proxy, which means it also tests the proxy.
+
+**The database is optional at runtime in development.** If it is unreachable the
+API still starts and `/ready` honestly reports `DOWN`, so you can work on routes
+without Docker running. In production a failed connection exits immediately.
+
+## Keeping it honest
+
+A scaffolder is only as good as the projects it produces, so this repository
+tests the output rather than the templates:
+
+```bash
+npm test          # 473 assertions across all 45 wizard combinations
+npm run smoke     # scaffold 7 real projects, run THEIR gates against them
+npm run smoke:quick
 ```
 
----
+`scripts/smoke.js` generates each project, then runs its `lint`, `format:check`,
+`build`, `test:unit`, `test:integration` and (with `--e2e`) `test:e2e`. It also
+asserts statically that:
 
-## 📊 Live DevSecOps CI/CD Workflow
+- every `npm run <script>` the generated workflow invokes actually exists,
+- every Dockerfile the workflow and compose file reference was generated,
+- `.gitignore` does not exclude `package-lock.json`,
+- `docker-compose.yml` carries no obsolete `version` key.
 
-```mermaid
-flowchart TD
-    StartNode(["● Start: Git Push or Tag"]) --> GHATrigger["Trigger GitHub Actions Runner"]
+CI runs the full matrix on every pull request, plus a job that builds the
+generated container images and boots the backend image to probe its endpoints.
 
-    subgraph PHASE1 ["Phase 1: Environment Setup, Shift-Left Security & Testing Gate (CI)"]
-        GHATrigger --> Checkout["1.1 📥 Checkout Code (actions/checkout@v4, fetch-depth: 0)"]
-        Checkout --> SecretGate["1.2 🔑 Gitleaks: Scan Commits for Exposed Secrets & Keys"]
-        SecretGate --> SetupNode["1.3 ⚙️ Setup Node.js & Cache (actions/setup-node@v4)"]
-        SetupNode --> InstallDeps["1.4 📦 Install Clean Dependencies (npm ci)"]
-        InstallDeps --> Lint["1.5 🧹 ESLint: Code Standards & Formatting"]
-        Lint --> DepAudit["1.6 🛡️ SCA: Dependency Vulnerability Audit (npm audit)"]
-        DepAudit --> SAST["1.7 🔍 SAST: Semgrep OWASP Top-10 Security Scan"]
-        SAST --> UnitTests["1.8 🧪 Unit Tests: Pure Functions & Logic (Jest)"]
-        UnitTests --> IntegrationTests["1.9 🔄 Integration Tests: HTTP Routes & APIs (Supertest)"]
-        IntegrationTests --> PlaywrightE2E["1.10 🎭 Playwright E2E: Headless Browser Scenarios"]
-        PlaywrightE2E --> OWASPZAP["1.11 ⚡ OWASP ZAP DAST: Live Vulnerability & Header Scan (zaproxy)"]
-        OWASPZAP --> Phase1Dec{"All CI & OWASP Gates Passed?"}
-    end
+## Repository layout
 
-    subgraph PHASE2 ["Phase 2: Secure Docker Build & GHCR Publishing"]
-        Hadolint["2.1 🐳 Hadolint: Dockerfile Security & Best Practice Lint"]
-        Hadolint --> SetupBuildx["2.2 🛠️ Setup Docker Buildx & Cache Engine"]
-        SetupBuildx --> CheckTrigger{"Trigger Type?"}
-        CheckTrigger -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
-        CheckTrigger -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
-        DevTag --> DockerBuild["2.3 🏗️ Multi-Stage Docker Image Build"]
-        ProdTag --> DockerBuild
-        DockerBuild --> TrivyScan["2.4 🛡️ Trivy: Container Image CVE Scan"]
-        TrivyScan --> PushGHCR["2.5 🏷️ Authenticate with GITHUB_TOKEN & Push to GHCR"]
-        PushGHCR --> Phase2Dec{"Build & Push Succeeded?"}
-    end
-
-    subgraph PHASE3 ["Phase 3: SOAR Monitoring & Google Chat Alerting"]
-        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Exact Offending Step: Gitleaks / Lint / OWASP / Unit / Integ / Playwright / Trivy<br/>• Failure Logs & Traceback<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
-        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• All 11 CI & OWASP Gates: 100% Passed<br/>• Image Published to GHCR with Verified Tags<br/>• Commit SHA, Author & Run Link"] --> TermSucc(["◎ Pipeline Succeeded"])
-    end
-
-    %% Success Transitions
-    Phase1Dec -->|"Yes (All 11 CI Gates Clean)"| Hadolint
-    Phase2Dec -->|"Yes (Zero High CVEs & Pushed)"| SuccAlert
-
-    %% Fail-Fast Transitions (Immediate Alert & Terminate)
-    Phase1Dec -->|"No (Any Security, OWASP, Lint, or Test Failure)"| FailAlert
-    Phase2Dec -->|"No (Dockerfile Lint, Image CVE, or Push Failure)"| FailAlert
+```
+bin/cli.js              Argument parsing and orchestration
+lib/
+├── constants.js        Ports, Node version, valid choices
+├── options.js          Validation and the single normalised options shape
+├── prompts.js          Interactive wizard
+├── scaffold.js         Writes a project to disk
+├── fs-utils.js         Copy helpers and exit-code-checked process runner
+└── generators/         Everything whose content depends on the answers
+    ├── manifest.js     package.json
+    ├── docker.js       Dockerfiles + nginx config
+    ├── compose.js      docker-compose.yml
+    ├── ci.js           GitHub Actions workflow
+    ├── config.js       Playwright, .env, gitleaks
+    └── docs.js         The generated project's README
+templates/              Files copied verbatim into generated projects
+scripts/smoke.js        Matrix smoke test
+tests/                  Unit tests for the generators
 ```
 
----
+Anything byte-identical across projects lives in `templates/`. Anything that
+depends on the wizard's answers is produced by a generator. Every generator
+reads the same `options` object, so adding a wizard choice means touching one
+shape rather than eight signatures.
 
-## 🛠️ Local Developer Commands
+## Requirements
 
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Starts local development server with hot-reload on `http://localhost:3000` |
-| `npm run lint` | Validates code standards & formatting via ESLint |
-| `npm test` | Executes both **Jest Unit** and **Supertest Integration** test suites |
-| `npm run test:unit` | Executes pure logic unit tests in isolation |
-| `npm run test:integration` | Executes HTTP route, healthcheck, and security header tests |
-| `npm run test:e2e` | Launches **Playwright** headless browser for end-to-end user journeys |
-| `npm run scan:secrets` | Runs **Gitleaks** locally to detect secret leaks before committing |
-| `npm run scan:sast` | Runs **Semgrep OWASP Top-10** security analysis locally |
-| `npm run init` | Launches interactive project scaffolder CLI |
+- Node.js 22 or newer (24 recommended — `.nvmrc` pins it)
+- npm 10+
+- Docker, only if you pick a database or want to build images
 
----
+## Contributing
 
-## 🎯 Container Versioning & Registry (GHCR)
+```bash
+npm install
+npm run lint && npm test
+npm run smoke:quick
+```
 
-| Git Trigger | Target Git Ref | Published Image Tag(s) | Environment |
-|---|---|---|---|
-| **Branch Push** | `refs/heads/main` | `ghcr.io/<owner>/ci-cd-kube:dev-<sha>`<br/>`ghcr.io/<owner>/ci-cd-kube:dev-latest` | **Development** |
-| **Release Tag** | `refs/tags/v*` (e.g. `v1.0.0`) | `ghcr.io/<owner>/ci-cd-kube:1.0.0`<br/>`ghcr.io/<owner>/ci-cd-kube:latest` | **Production** |
+Adding a framework means adding a directory under `templates/`, a branch in the
+relevant generator, and an entry in the `MATRIX` in `scripts/smoke.js`. The
+smoke test will tell you what you missed.
 
----
+## License
 
-## 📋 Architecture & Documentation
-- 📖 [Pipeline Architectural Specification](docs/architecture/pipeline_architecture.md)
-- 🖨️ [Printable / PDF Exportable HTML Diagram](docs/architecture/pipeline_diagram.html)
-- 📋 [GitHub Project Kanban Board](https://github.com/users/konstantine-garozashvili/projects/21)
+MIT © Konstantine Garozashvili
