@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevSecOps Golden Starter</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;700&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: #111827;
+      --border-color: #1f2937;
+      --accent: #38bdf8;
+      --accent-green: #22c55e;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.5rem;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+    }
+    p { color: var(--muted); margin-bottom: 1.5rem; font-size: 1.05rem; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    .pulse {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      text-align: left;
+      margin-bottom: 2rem;
+    }
+    .item {
+      background: #1f2937;
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid #374151;
+    }
+    .item label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .item div {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.95rem;
+      color: #f3f4f6;
+      margin-top: 0.25rem;
+    }
+    .btn-group {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+    a.btn {
+      text-decoration: none;
+      background: #2563eb;
+      color: #fff;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    a.btn:hover { background: #1d4ed8; }
+    a.btn-outline {
+      background: transparent;
+      border: 1px solid #4b5563;
+      color: #e5e7eb;
+    }
+    a.btn-outline:hover { background: #1f2937; }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="app-card">
+    <h1 id="app-title">🚀 DevSecOps Golden Starter</h1>
+    <p>Production-ready microservice with Shift-Left Security & Testing</p>
+    
+    <div class="status-badge" id="status-badge">
+      <span class="pulse"></span> System Operational
+    </div>
+
+    <div class="grid">
+      <div class="item">
+        <label>Healthcheck</label>
+        <div id="health-status">UP (HTTP 200)</div>
+      </div>
+      <div class="item">
+        <label>Security Headers</label>
+        <div id="security-status">Helmet Protected</div>
+      </div>
+      <div class="item">
+        <label>Testing Suite</label>
+        <div id="testing-status">Unit + Integ + E2E</div>
+      </div>
+      <div class="item">
+        <label>Containerization</label>
+        <div id="docker-status">Multi-Stage Alpine</div>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <a href="/api/info" class="btn" id="btn-info">View API Info</a>
+      <a href="/healthz" class="btn btn-outline" id="btn-health">Health Probe</a>
+    </div>
+  </div>
+
+</body>
+</html>

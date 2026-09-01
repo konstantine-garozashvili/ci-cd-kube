@@ -1,0 +1,20 @@
+# Gitleaks Configuration for Shift-Left Secret Detection
+title = "ci-cd-kube secret scan profile"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlisted paths and mock test keys"
+paths = [
+  '''^\.gitleaks\.toml$''',
+  '''^\.env\.example$''',
+  '''^tests/.*''',
+  '''^package-lock\.json$''',
+  '''^docs/.*'''
+]
+regexes = [
+  '''(?i)example[_-]?key''',
+  '''(?i)mock[_-]?token''',
+  '''(?i)dummy[_-]?secret'''
+]
