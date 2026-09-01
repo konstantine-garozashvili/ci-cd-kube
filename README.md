@@ -16,16 +16,20 @@ Enterprise **DevSecOps Golden Template** & dynamic scaffolding engine designed t
 
 ## ⚡ Quick Start: Interactive Project Wizard
 
-When cloning this template to start a new project, run the interactive CLI wizard:
+When starting any new project in the future, run:
 
 ```bash
-npm run init
+npx laplateforme-starter my-new-app
+```
+*(or run directly in current directory)*:
+```bash
+npx laplateforme-starter init
 ```
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
-│  🚀 DEVSECOPS GOLDEN STARTER — Dynamic Project Scaffolder        │
-│  Enterprise Shift-Left Security, CI/CD & Testing Boilerplate     │
+│  🏛️  LA PLATEFORME — Enterprise DevSecOps Scaffolder              │
+│  Zero-Config Security, CI/CD, Testing & Cloud-Native Boilerplate │
 └──────────────────────────────────────────────────────────────────┘
 
 ? Project Name: my-saas-app

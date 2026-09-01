@@ -1,12 +1,12 @@
 {
-  "name": "laplateforme-cli",
+  "name": "laplateforme-starter",
   "version": "1.0.0",
-  "description": "La Plateforme - Enterprise DevSecOps Scaffolding Engine & Cloud-Native Starter Framework",
+  "description": "La Plateforme Starter - Enterprise DevSecOps Scaffolding Engine & Cloud-Native Starter Framework",
   "main": "src/server.js",
   "bin": {
+    "laplateforme-starter": "./bin/cli.js",
     "laplateforme": "./bin/cli.js",
-    "create-laplateforme": "./bin/cli.js",
-    "laplateforme-cli": "./bin/cli.js"
+    "create-laplateforme": "./bin/cli.js"
   },
   "files": [
     "bin",
@@ -45,6 +45,7 @@
   },
   "keywords": [
     "laplateforme",
+    "laplateforme-starter",
     "devsecops",
     "scaffolding",
     "ci-cd",

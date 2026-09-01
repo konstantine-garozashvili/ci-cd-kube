@@ -70,9 +70,9 @@ async function runWizard() {
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
 ${colors.bright}Usage:${colors.reset}
-  npx laplateforme init [target-dir]
-  npx create-laplateforme [target-dir]
-  npm create laplateforme-app [target-dir]
+  npx laplateforme-starter [target-dir]
+  npx laplateforme-starter init [target-dir]
+  npm create laplateforme-starter [target-dir]
 
 ${colors.bright}Options:${colors.reset}
   --defaults     Scaffold project with default Express.js + DevSecOps stack
