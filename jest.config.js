@@ -3,6 +3,9 @@ module.exports = {
   testEnvironment: 'node',
   verbose: true,
   testMatch: ['**/tests/unit/**/*.test.js', '**/tests/integration/**/*.test.js'],
+  modulePathIgnorePatterns: [
+    '<rootDir>/templates/',
+  ],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/server.js',

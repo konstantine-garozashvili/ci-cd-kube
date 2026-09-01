@@ -108,12 +108,12 @@ ${colors.bright}Options:${colors.reset}
 
     console.log(`\n${colors.bright}🎨 Step 3: Frontend Framework Selection${colors.reset}`);
     console.log(`  1. React + Vite ${colors.dim}(Fast Single Page Application SPA with Dashboard UI)${colors.reset}`);
-    console.log(`  2. Vanilla UI   ${colors.dim}(HTML5 + CSS Interactive Endpoint Explorer)${colors.reset}`);
-    console.log(`  3. Next.js      ${colors.dim}(Fullstack React, SSR & App Router)${colors.reset}`);
-    console.log(`  4. Vue + Vite   ${colors.dim}(Modern Vue 3 SPA)${colors.reset}`);
+    console.log(`  2. Vue 3 + Vite ${colors.dim}(Modern Vue 3 SPA with Endpoint Explorer)${colors.reset}`);
+    console.log(`  3. Vanilla UI   ${colors.dim}(HTML5 + CSS Interactive Endpoint Explorer)${colors.reset}`);
+    console.log(`  4. Next.js      ${colors.dim}(Fullstack React, SSR & App Router)${colors.reset}`);
     console.log(`  5. None         ${colors.dim}(Pure REST API / Backend Microservice only)${colors.reset}`);
     const feChoice = await ask(rl, `${colors.yellow}?${colors.reset} Choose Frontend [1-5]`, '1');
-    const feMap = { '1': 'react', '2': 'vanilla', '3': 'nextjs', '4': 'vue', '5': 'none' };
+    const feMap = { '1': 'react', '2': 'vue', '3': 'vanilla', '4': 'nextjs', '5': 'none' };
     frontendFw = feMap[feChoice] || 'react';
 
     console.log(`\n${colors.bright}🗄️ Step 4: Database & ORM Selection${colors.reset}`);
@@ -147,48 +147,64 @@ ${colors.bright}Options:${colors.reset}
     fs.mkdirSync(backendPath, { recursive: true });
   }
 
-  // Copy Backend Source & Tests
-  copyDirRecursive(path.join(packageRoot, 'src'), path.join(backendPath, 'src'));
-  copyDirRecursive(path.join(packageRoot, 'tests', 'unit'), path.join(backendPath, 'tests', 'unit'));
-  copyDirRecursive(path.join(packageRoot, 'tests', 'integration'), path.join(backendPath, 'tests', 'integration'));
+  if (backendFw === 'hono') {
+    copyDirRecursive(path.join(packageRoot, 'templates', 'backend', 'hono'), backendPath);
+  } else {
+    // Default Express Backend
+    copyDirRecursive(path.join(packageRoot, 'src'), path.join(backendPath, 'src'));
+    copyDirRecursive(path.join(packageRoot, 'tests', 'unit'), path.join(backendPath, 'tests', 'unit'));
+    copyDirRecursive(path.join(packageRoot, 'tests', 'integration'), path.join(backendPath, 'tests', 'integration'));
 
-  // Backend package.json
-  const backendPackageJson = {
-    name: isFullstack ? 'backend' : path.basename(targetPath),
-    version: '1.0.0',
-    description: `Backend API microservice (${backendFw}) with Shift-Left Security`,
-    main: 'src/server.js',
-    scripts: {
-      start: 'node src/server.js',
-      dev: 'node --watch src/server.js',
-      lint: 'eslint "src/**/*.js" "tests/**/*.js"',
-      'lint:fix': 'eslint "src/**/*.js" "tests/**/*.js" --fix',
-      test: 'npm run test:unit && npm run test:integration',
-      'test:unit': 'jest tests/unit --runInBand',
-      'test:integration': 'jest tests/integration --runInBand',
-      'scan:secrets': 'gitleaks detect --verbose',
-      'scan:sast': 'semgrep scan --config="p/owasp-top-ten" src',
-    },
-    dependencies: {
-      cors: '^2.8.5',
-      dotenv: '^16.4.5',
-      express: '^4.19.2',
-      'express-rate-limit': '^7.2.0',
-      helmet: '^7.1.0',
-    },
-    devDependencies: {
-      eslint: '^8.57.0',
-      jest: '^29.7.0',
-      prettier: '^3.2.5',
-      supertest: '^7.0.0',
-    },
-  };
+    const backendPackageJson = {
+      name: isFullstack ? 'backend' : path.basename(targetPath),
+      version: '1.0.0',
+      description: `Backend API microservice (${backendFw}) with Shift-Left Security`,
+      main: 'src/server.js',
+      scripts: {
+        start: 'node src/server.js',
+        dev: 'node --watch src/server.js',
+        lint: 'eslint "src/**/*.js" "tests/**/*.js"',
+        'lint:fix': 'eslint "src/**/*.js" "tests/**/*.js" --fix',
+        test: 'npm run test:unit && npm run test:integration',
+        'test:unit': 'jest tests/unit --runInBand',
+        'test:integration': 'jest tests/integration --runInBand',
+        'scan:secrets': 'gitleaks detect --verbose',
+        'scan:sast': 'semgrep scan --config="p/owasp-top-ten" src',
+      },
+      dependencies: {
+        cors: '^2.8.5',
+        dotenv: '^16.4.5',
+        express: '^4.19.2',
+        'express-rate-limit': '^7.2.0',
+        helmet: '^7.1.0',
+        ...(database === 'mongodb' ? { mongoose: '^8.3.4' } : {}),
+      },
+      devDependencies: {
+        eslint: '^8.57.0',
+        jest: '^29.7.0',
+        prettier: '^3.2.5',
+        supertest: '^7.0.0',
+        ...(database === 'postgres' ? { prisma: '^5.13.0', '@prisma/client': '^5.13.0' } : {}),
+      },
+    };
 
-  fs.writeFileSync(
-    path.join(backendPath, 'package.json'),
-    JSON.stringify(backendPackageJson, null, 2) + '\n',
-    'utf-8'
-  );
+    fs.writeFileSync(
+      path.join(backendPath, 'package.json'),
+      JSON.stringify(backendPackageJson, null, 2) + '\n',
+      'utf-8'
+    );
+  }
+
+  // Copy Database Schema / Helpers
+  if (database === 'postgres') {
+    copyDirRecursive(path.join(packageRoot, 'templates', 'db', 'prisma'), path.join(backendPath, 'prisma'));
+  } else if (database === 'mongodb') {
+    const dbDir = path.join(backendPath, 'src', 'db');
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    fs.copyFileSync(path.join(packageRoot, 'templates', 'db', 'mongoose', 'db.js'), path.join(dbDir, 'db.js'));
+  }
 
   // Backend Dockerfile
   const backendDockerfile = generateDockerfile({ framework: backendFw });
@@ -206,7 +222,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 ${database === 'postgres' ? 'DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db?schema=public\n' : ''}${database === 'mongodb' ? 'MONGODB_URI=mongodb://localhost:27017/app_db\n' : ''}`;
   fs.writeFileSync(path.join(backendPath, '.env.example'), backendEnv, 'utf-8');
   fs.writeFileSync(path.join(backendPath, '.env'), backendEnv, 'utf-8');
-  console.log(`  ${colors.green}✔${colors.reset} Created ${colors.bright}backend/${colors.reset} (API routes, security middleware, probes, tests)`);
+  console.log(`  ${colors.green}✔${colors.reset} Created ${colors.bright}backend/${colors.reset} (${backendFw} API + ${database} database support)`);
 
   // 2. SCAFFOLD FRONTEND FOLDER (IF APPLICABLE)
   if (isFullstack) {
@@ -217,6 +233,8 @@ ${database === 'postgres' ? 'DATABASE_URL=postgresql://postgres:postgres@localho
 
     if (frontendFw === 'react') {
       copyDirRecursive(path.join(packageRoot, 'templates', 'frontend', 'react'), frontendPath);
+    } else if (frontendFw === 'vue') {
+      copyDirRecursive(path.join(packageRoot, 'templates', 'frontend', 'vue'), frontendPath);
     } else {
       // Vanilla UI
       const feSrc = path.join(frontendPath, 'public');
@@ -299,7 +317,24 @@ VITE_API_URL=http://localhost:3000
         },
       };
     } else {
-      rootPackageJson = backendPackageJson;
+      rootPackageJson = {
+        name: path.basename(targetPath),
+        version: '1.0.0',
+        description: `Cloud-Native microservice (${backendFw}) with DevSecOps`,
+        main: 'src/server.js',
+        scripts: {
+          start: 'node src/server.js',
+          dev: 'node --watch src/server.js',
+          lint: 'eslint "src/**/*.js" "tests/**/*.js"',
+          test: 'npm run test:unit && npm run test:integration',
+          'test:unit': 'jest tests/unit --runInBand',
+          'test:integration': 'jest tests/integration --runInBand',
+          'test:e2e': 'playwright test',
+        },
+        devDependencies: {
+          '@playwright/test': '^1.44.0',
+        },
+      };
     }
 
     fs.writeFileSync(
