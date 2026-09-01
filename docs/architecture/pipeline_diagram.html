@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CI/CD Pipeline Architecture & UML Activity Diagram</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Mermaid.js -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --border-color: #374151;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-blue: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-purple: #818cf8;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 2.5rem 1.5rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-title h1 {
+      font-family: var(--font-heading);
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .header-title p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .badge-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .badge.green {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--accent-green);
+      border-color: rgba(34, 197, 94, 0.25);
+    }
+
+    .badge.purple {
+      background: rgba(129, 140, 248, 0.1);
+      color: var(--accent-purple);
+      border-color: rgba(129, 140, 248, 0.25);
+    }
+
+    /* Actions / Print Button */
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+
+    /* Section Cards */
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    /* Diagram Canvas */
+    .diagram-container {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    .mermaid {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Grid layout for features */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .step-box {
+      background: var(--bg-card);
+      border-left: 4px solid var(--accent-blue);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .step-box.purple { border-left-color: var(--accent-purple); }
+    .step-box.green { border-left-color: var(--accent-green); }
+    .step-box.amber { border-left-color: var(--accent-amber); }
+    .step-box.red { border-left-color: var(--accent-red); }
+
+    .step-box h3 {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f9fafb;
+      margin-bottom: 0.5rem;
+    }
+
+    .step-box p, .step-box ul {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    .step-box ul {
+      margin-left: 1.2rem;
+      margin-top: 0.5rem;
+    }
+
+    .step-box li {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: var(--bg-card);
+      color: #f9fafb;
+      font-family: var(--font-heading);
+      font-weight: 600;
+    }
+
+    td {
+      color: var(--text-muted);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: #38bdf8;
+    }
+
+    /* Print Stylesheet for PDF conversion */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 1.2cm;
+      }
+
+      body {
+        background: #ffffff !important;
+        color: #111827 !important;
+        padding: 0 !important;
+        font-size: 10pt;
+      }
+
+      .actions, .badge-group {
+        display: none !important;
+      }
+
+      .card {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        box-shadow: none !important;
+        padding: 1rem !important;
+        margin-bottom: 1.2rem !important;
+        page-break-inside: avoid;
+      }
+
+      .header-title h1 {
+        color: #111827 !important;
+        background: none !important;
+        -webkit-text-fill-color: #111827 !important;
+        font-size: 1.6rem !important;
+      }
+
+      .diagram-container {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        padding: 0.5rem !important;
+      }
+
+      .step-box {
+        background: #f9fafb !important;
+        border-width: 2px !important;
+      }
+
+      .step-box h3, .card-title {
+        color: #111827 !important;
+      }
+
+      .step-box p, .step-box ul, td {
+        color: #374151 !important;
+      }
+
+      th {
+        background: #f3f4f6 !important;
+        color: #111827 !important;
+      }
+
+      code {
+        background: #f3f4f6 !important;
+        color: #1f2937 !important;
+        border: 1px solid #e5e7eb !important;
+      }
+
+      .mermaid svg {
+        max-width: 100% !important;
+        height: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Top Bar / Header -->
+    <header>
+      <div class="header-title">
+        <h1>CI/CD Pipeline UML Activity Architecture</h1>
+        <p>Comprehensive workflow blueprint: GitHub Actions ➔ Docker Multi-Stage ➔ GHCR ➔ Kubernetes ➔ Google Chat Alerting</p>
+        <div class="badge-group">
+          <span class="badge">Repository: ci-cd-kube</span>
+          <span class="badge green">Automated Quality Gate</span>
+          <span class="badge purple">Kubernetes Continuous Deployment</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="window.print()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Export to PDF / Print
+        </button>
+      </div>
+    </header>
+
+    <!-- Main UML Diagram Card -->
+    <section class="card">
+      <div class="card-title">
+        <span>📊</span> Master UML Activity Diagram
+      </div>
+      <div class="diagram-container">
+        <div class="mermaid">
+flowchart TD
+    %% Global Styling
+    classDef startEnd fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc,font-weight:bold;
+    classDef action fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#e2e8f0;
+    classDef decision fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef fail fill:#450a0a,stroke:#ef4444,stroke-width:2px,color:#fee2e2;
+    classDef success fill:#052e16,stroke:#22c55e,stroke-width:2px,color:#dcfce7;
+    classDef branch fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#dbeafe;
+
+    %% Entry
+    StartNode((● Start)):::startEnd --> TriggerNode[Event: Git Push on 'main' OR Git Tag 'v*']:::action
+    TriggerNode --> GHATrigger[Trigger GitHub Actions Workflow]:::action
+
+    %% Stage 1: CI
+    subgraph STAGE_1 ["Stage 1: Checkout & Automated Testing (CI)"]
+        GHATrigger --> Checkout[1.1 Checkout Code via actions/checkout@v4]:::action
+        Checkout --> SetupEnv[1.2 Setup Runtime & Cache Dependencies]:::action
+        SetupEnv --> InstallDeps[1.3 Install Dependencies via npm ci]:::action
+        InstallDeps --> RunTests[1.4 Execute Automated Test Suite]:::action
+        RunTests --> TestDecision{Unit Tests Passed?}:::decision
+    end
+
+    %% Fail-Fast Branch
+    TestDecision -- ❌ No (Fail-Fast) --> PrepareTestFail[Extract Failure Logs & Stack Trace]:::fail
+    PrepareTestFail --> SendFailNotif[Send Google Chat Failure Notification 🔴]:::fail
+    SendFailNotif --> EndFail((● Pipeline Terminated)):::fail
+
+    TestDecision -- ✅ Yes --> Stage2Entry[Proceed to Build Stage]:::action
+
+    %% Stage 2 & 3: Containerization & Registry Push
+    subgraph STAGE_2_3 ["Stage 2 & 3: Container Build & GHCR Push"]
+        Stage2Entry --> CheckTriggerType{Trigger Type?}:::decision
+        
+        CheckTriggerType -- "Push on 'main'" --> DevTagging["Dev Strategy<br/>Tags: dev-&lt;sha&gt;, dev-latest<br/>Target: Development"]:::branch
+        CheckTriggerType -- "Git Tag 'v*'" --> ProdTagging["Prod Strategy<br/>Tags: &lt;vX.Y.Z&gt;, latest<br/>Target: Production"]:::branch
+        
+        DevTagging --> SetupBuildx[Setup Docker Buildx & Cache]:::action
+        ProdTagging --> SetupBuildx
+        
+        SetupBuildx --> AuthGHCR[Authenticate with GHCR via GITHUB_TOKEN]:::action
+        AuthGHCR --> DockerBuildPush[Build Multi-Stage Docker Image & Push to GHCR]:::action
+        DockerBuildPush --> BuildDecision{Build & Push Succeeded?}:::decision
+    end
+
+    BuildDecision -- ❌ No --> PrepareBuildFail[Extract Docker Build Errors]:::fail
+    PrepareBuildFail --> SendFailNotif
+
+    BuildDecision -- ✅ Yes --> Stage4Entry[Proceed to Deployment Stage]:::action
+
+    %% Stage 4: Kubernetes CD
+    subgraph STAGE_4 ["Stage 4: Kubernetes Deployment (CD)"]
+        Stage4Entry --> AuthK8s[Authenticate to Kubernetes via KUBECONFIG]:::action
+        AuthK8s --> ApplyManifests[Apply Manifests: Deployment, Service, Ingress]:::action
+        ApplyManifests --> SetImage[Update Deployment Image Tag on Cluster]:::action
+        SetImage --> RolloutWait[Execute kubectl rollout status --timeout=120s]:::action
+        RolloutWait --> RolloutDecision{Rollout Healthy?}:::decision
+    end
+
+    RolloutDecision -- ❌ No (Timeout / Crash) --> PrepareK8sFail[Fetch Pod Logs & describe deployment]:::fail
+    PrepareK8sFail --> SendFailNotif
+
+    RolloutDecision -- ✅ Yes --> PrepareSuccess[Generate Pipeline Summary Payload]:::success
+    
+    %% Stage 5: Notification & Completion
+    subgraph STAGE_5 ["Stage 5: Notification & Final State"]
+        PrepareSuccess --> SendSuccessNotif[Send Google Chat Success Notification 🟢]:::success
+        SendSuccessNotif --> EndSuccess((◎ Pipeline Succeeded)):::startEnd
+    end
+        </div>
+      </div>
+    </section>
+
+    <!-- Strategy Matrix -->
+    <section class="card">
+      <div class="card-title">
+        <span>⚙️</span> Trigger & Image Tagging Strategy Matrix
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Git Trigger</th>
+            <th>Git Reference</th>
+            <th>Generated Docker Image Tags</th>
+            <th>Environment</th>
+            <th>Continuous Deployment Target</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Branch Push</strong></td>
+            <td><code>refs/heads/main</code></td>
+            <td><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-&lt;sha&gt;</code><br/><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-latest</code></td>
+            <td><span class="badge">Development</span></td>
+            <td>Dev Namespace / Staging Cluster</td>
+          </tr>
+          <tr>
+            <td><strong>Release Tag</strong></td>
+            <td><code>refs/tags/v*</code> (e.g. <code>v1.0.0</code>)</td>
+            <td><code>ghcr.io/&lt;user&gt;/ci-cd-kube:1.0.0</code><br/><code>ghcr.io/&lt;user&gt;/ci-cd-kube:latest</code></td>
+            <td><span class="badge green">Production</span></td>
+            <td>Prod Namespace / Live Cluster</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Key Stage Specifications -->
+    <section class="card">
+      <div class="card-title">
+        <span>🚀</span> Stage Specifications & Quality Gates
+      </div>
+      <div class="grid-2">
+        <div class="step-box">
+          <h3>1. Automated Testing & Fail-Fast</h3>
+          <p>Every code change runs through isolated automated testing.</p>
+          <ul>
+            <li>Dependencies restored via GitHub Actions cache.</li>
+            <li>Unit & integration tests run via <code>npm test</code>.</li>
+            <li><strong>Strict Fail-Fast</strong>: Non-zero exit code immediately aborts downstream jobs.</li>
+          </ul>
+        </div>
+
+        <div class="step-box purple">
+          <h3>2. Multi-Stage Docker Containerization</h3>
+          <p>Optimized and secured container build.</p>
+          <ul>
+            <li>Non-root user execution (security hardening).</li>
+            <li>Build dependencies stripped out of final runtime image.</li>
+            <li>Layer caching enabled (<code>type=gha</code>) for fast builds.</li>
+          </ul>
+        </div>
+
+        <div class="step-box green">
+          <h3>3. Kubernetes Continuous Deployment</h3>
+          <p>Automated declarative cluster synchronization.</p>
+          <ul>
+            <li>Manifests: Deployment, Service, Ingress, ConfigMap.</li>
+            <li>Dynamic rollout: <code>kubectl set image</code> or Kustomize.</li>
+            <li>Health probe validation with <code>kubectl rollout status</code>.</li>
+          </ul>
+        </div>
+
+        <div class="step-box amber">
+          <h3>4. Google Chat SOAR Notification</h3>
+          <p>Real-time team alerting on every pipeline execution.</p>
+          <ul>
+            <li>Always runs on completion (<code>if: always()</code>).</li>
+            <li><strong>Success (🟢)</strong>: Commit SHA, author, version tag, workflow URL.</li>
+            <li><strong>Failure (🔴)</strong>: Offending step, failure diagnostics, direct log link.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Defense Presentation Notes -->
+    <section class="card">
+      <div class="card-title">
+        <span>🎓</span> Soutenance / Project Presentation Checklist
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Demonstration Scenario</th>
+            <th>Expected Behavior</th>
+            <th>Validation Checkpoint</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Scenario 1: Push to <code>main</code></strong></td>
+            <td>Pipeline tests, builds <code>dev-&lt;sha&gt;</code>, pushes to GHCR, deploys to K8s, sends green alert.</td>
+            <td>Inspect GHCR dev tags & K8s pod image tag.</td>
+          </tr>
+          <tr>
+            <td><strong>Scenario 2: Release Tag (<code>v1.0.0</code>)</strong></td>
+            <td>Pipeline tests, builds release image <code>1.0.0</code> & <code>latest</code>, deploys to K8s prod.</td>
+            <td>Inspect SemVer tags in GHCR & production rollout.</td>
+          </tr>
+          <tr>
+            <td><strong>Scenario 3: Broken Test Trigger</strong></td>
+            <td>Test failure triggers fail-fast, builds are canceled, red Google Chat card with log extract is sent.</td>
+            <td>Verify pipeline termination & error webhook card.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#0f172a',
+        primaryColor: '#1e293b',
+        primaryBorderColor: '#38bdf8',
+        primaryTextColor: '#f8fafc',
+        lineColor: '#38bdf8',
+        secondaryColor: '#312e81',
+        tertiaryColor: '#052e16'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  </script>
+</body>
+</html>
