@@ -50,6 +50,7 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  issues: write
 
 env:
   REGISTRY: ghcr.io
@@ -114,8 +115,9 @@ ${hasPlaywright ? `
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: 'http://localhost:3000'
-          ruleset_ignore: '10038,10055'
           fail_action: false
+          allow_issue_writing: false
+          token: \${{ secrets.GITHUB_TOKEN }}
 ` : ''}
 
   # ==========================================
