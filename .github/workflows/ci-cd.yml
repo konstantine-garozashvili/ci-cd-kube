@@ -53,7 +53,7 @@ jobs:
       - name: 🔍 1.7 SAST Security Scan (Semgrep OWASP Top 10)
         run: |
           python3 -m pip install --quiet semgrep
-          semgrep scan --config="p/owasp-top-ten" --error --metrics=off
+          semgrep scan --config="p/owasp-top-ten" src --error --metrics=off
 
       - name: 🧪 1.8 Execute Automated Unit Tests
         run: npm run test:unit
@@ -175,7 +175,7 @@ jobs:
           curl -s -X POST -H 'Content-Type: application/json' "$GOOGLE_CHAT_WEBHOOK" -d "{
             \"cardsV2\": [{
               \"cardId\": \"pipelineStatusCard\",
-              \"card\": {
+              \"card": {
                 \"header\": {
                   \"title\": \"$STATUS_ICON CI/CD Pipeline $PIPELINE_STATUS\",
                   \"subtitle\": \"Repository: $GH_REPO\"
