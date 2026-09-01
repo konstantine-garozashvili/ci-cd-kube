@@ -1,6 +1,6 @@
 {
   "name": "laplateforme-starter",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "La Plateforme Starter - Enterprise DevSecOps Scaffolding Engine & Cloud-Native Starter Framework",
   "main": "src/server.js",
   "bin": {

@@ -170,6 +170,14 @@ ${colors.bright}Options:${colors.reset}
         'test:integration': 'jest tests/integration --runInBand',
         'scan:secrets': 'gitleaks detect --verbose',
         'scan:sast': 'semgrep scan --config="p/owasp-top-ten" src',
+        ...(database === 'postgres'
+          ? {
+              'db:generate': 'prisma generate',
+              'db:push': 'prisma db push',
+              'db:migrate': 'prisma migrate dev',
+              'db:studio': 'prisma studio',
+            }
+          : {}),
       },
       dependencies: {
         cors: '^2.8.5',
@@ -177,6 +185,7 @@ ${colors.bright}Options:${colors.reset}
         express: '^4.19.2',
         'express-rate-limit': '^7.2.0',
         helmet: '^7.1.0',
+        ...(database === 'postgres' ? { '@prisma/client': '^5.13.0' } : {}),
         ...(database === 'mongodb' ? { mongoose: '^8.3.4' } : {}),
       },
       devDependencies: {
@@ -184,7 +193,7 @@ ${colors.bright}Options:${colors.reset}
         jest: '^29.7.0',
         prettier: '^3.2.5',
         supertest: '^7.0.0',
-        ...(database === 'postgres' ? { prisma: '^5.13.0', '@prisma/client': '^5.13.0' } : {}),
+        ...(database === 'postgres' ? { prisma: '^5.13.0' } : {}),
       },
     };
 
@@ -198,6 +207,11 @@ ${colors.bright}Options:${colors.reset}
   // Copy Database Schema / Helpers
   if (database === 'postgres') {
     copyDirRecursive(path.join(packageRoot, 'templates', 'db', 'prisma'), path.join(backendPath, 'prisma'));
+    const dbDir = path.join(backendPath, 'src', 'db');
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    fs.copyFileSync(path.join(packageRoot, 'templates', 'db', 'prisma', 'client.js'), path.join(dbDir, 'prisma.js'));
   } else if (database === 'mongodb') {
     const dbDir = path.join(backendPath, 'src', 'db');
     if (!fs.existsSync(dbDir)) {
@@ -310,6 +324,14 @@ VITE_API_URL=http://localhost:3000
           test: 'npm test --workspace=backend',
           'test:e2e': 'playwright test',
           lint: 'npm run lint --workspaces',
+          ...(database === 'postgres'
+            ? {
+                'db:generate': 'npm run db:generate --workspace=backend',
+                'db:push': 'npm run db:push --workspace=backend',
+                'db:migrate': 'npm run db:migrate --workspace=backend',
+                'db:studio': 'npm run db:studio --workspace=backend',
+              }
+            : {}),
         },
         devDependencies: {
           '@playwright/test': '^1.44.0',
