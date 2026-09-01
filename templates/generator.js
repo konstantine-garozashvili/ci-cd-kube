@@ -41,7 +41,6 @@ function generateGitHubWorkflow({ framework: _framework, database, features }) {
 on:
   push:
     branches: [main]
-  push:
     tags: ['v*']
 
 concurrency:
@@ -197,8 +196,25 @@ ${hasTrivy ? `
           PIPELINE_STATUS: \${{ needs.docker-build-push.result == 'success' && 'SUCCESS' || 'FAILURE' }}
         run: |
           STATUS_ICON="\${{ env.PIPELINE_STATUS == 'SUCCESS' && '🟢' || '🔴' }}"
-          PAYLOAD='{"cardsV2":[{"cardId":"pipelineStatusCard","card":{"header":{"title":"'"$STATUS_ICON"' CI/CD Pipeline '"$PIPELINE_STATUS"'","subtitle":"Repository: '"\${{ github.repository }}"'"},"sections":[{"widgets":[{"decoratedText":{"topLabel":"Commit","text":"'"\${{ github.sha }}"'"}},{"decoratedText":{"topLabel":"Author","text":"'"\${{ github.actor }}"'"}},{"decoratedText":{"topLabel":"Ref","text":"'"\${{ github.ref_name }}"'"}}]}]}}]}'
-          curl -s -X POST -H 'Content-Type: application/json' "$GOOGLE_CHAT_WEBHOOK" -d "$PAYLOAD" || true
+          curl -s -X POST -H 'Content-Type: application/json' "$GOOGLE_CHAT_WEBHOOK" -d '{
+            "cardsV2": [{
+              "cardId": "pipelineStatusCard",
+              "card": {
+                "header": {
+                  "title": "'"$STATUS_ICON"' CI/CD Pipeline '"$PIPELINE_STATUS"'",
+                  "subtitle": "Repository: '"\${{ github.repository }}"'"
+                },
+                "sections": [{
+                  "widgets": [
+                    { "decoratedText": { "topLabel": "Commit", "text": "'"\${{ github.sha }}"'" } },
+                    { "decoratedText": { "topLabel": "Author", "text": "'"\${{ github.actor }}"'" } },
+                    { "decoratedText": { "topLabel": "Ref", "text": "'"\${{ github.ref_name }}"'" } },
+                    { "buttonList": { "buttons": [{ "text": "View Action Run", "onClick": { "openLink": { "url": "https://github.com/'"\${{ github.repository }}"'/actions/runs/'"\${{ github.run_id }}"'" } } }] } }
+                  ]
+                }]
+              }
+            }]
+          }' || true
 `;
 }
 
