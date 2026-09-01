@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CI/CD Pipeline Architecture & UML Activity Diagram</title>
-  
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+    rel="stylesheet">
+
   <!-- Mermaid.js -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  
+
   <style>
     :root {
       --bg-primary: #0a0e17;
@@ -240,9 +243,17 @@
       padding: 1.1rem;
     }
 
-    .step-box.purple { border-left-color: var(--accent-purple); }
-    .step-box.green { border-left-color: var(--accent-green); }
-    .step-box.amber { border-left-color: var(--accent-amber); }
+    .step-box.purple {
+      border-left-color: var(--accent-purple);
+    }
+
+    .step-box.green {
+      border-left-color: var(--accent-green);
+    }
+
+    .step-box.amber {
+      border-left-color: var(--accent-amber);
+    }
 
     .step-box h3 {
       font-family: var(--font-heading);
@@ -252,7 +263,8 @@
       margin-bottom: 0.35rem;
     }
 
-    .step-box p, .step-box ul {
+    .step-box p,
+    .step-box ul {
       font-size: 0.88rem;
       color: var(--text-muted);
     }
@@ -274,7 +286,8 @@
       font-size: 0.92rem;
     }
 
-    th, td {
+    th,
+    td {
       padding: 0.75rem 1rem;
       text-align: left;
       border-bottom: 1px solid var(--border-color);
@@ -318,7 +331,9 @@
         max-width: 100% !important;
       }
 
-      .actions, .badge-group, .diagram-controls {
+      .actions,
+      .badge-group,
+      .diagram-controls {
         display: none !important;
       }
 
@@ -351,11 +366,14 @@
         border-width: 2px !important;
       }
 
-      .step-box h3, .card-title {
+      .step-box h3,
+      .card-title {
         color: #111827 !important;
       }
 
-      .step-box p, .step-box ul, td {
+      .step-box p,
+      .step-box ul,
+      td {
         color: #374151 !important;
       }
 
@@ -378,15 +396,17 @@
     }
   </style>
 </head>
+
 <body>
 
   <div class="container">
-    
+
     <!-- Top Bar / Header -->
     <header>
       <div class="header-title">
         <h1>CI/CD Pipeline Architecture & UML Diagram</h1>
-        <p>Complete execution workflow blueprint: GitHub Actions ➔ Docker Multi-Stage ➔ GHCR ➔ Kubernetes ➔ Google Chat</p>
+        <p>Complete execution workflow blueprint: GitHub Actions ➔ Docker Multi-Stage ➔ GHCR ➔ Kubernetes ➔ Google Chat
+        </p>
         <div class="badge-group">
           <span class="badge">Repository: ci-cd-kube</span>
           <span class="badge green">Fail-Fast Quality Gate</span>
@@ -396,7 +416,8 @@
       </div>
       <div class="actions">
         <button class="btn" onclick="window.print()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 6 2 18 2 18 9"></polyline>
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
             <rect x="6" y="14" width="12" height="8"></rect>
@@ -421,48 +442,48 @@
 
       <div class="diagram-container">
         <div class="mermaid" id="diagram">
-flowchart TD
-    StartNode(["● Start"]) --> Trigger["Git Event: Push on 'main' OR Tag 'v*'"]
-    Trigger --> GHATrigger["Trigger GitHub Actions Workflow"]
+          flowchart TD
+          StartNode(["● Start"]) --> Trigger["Git Event: Push on 'main' OR Tag 'v*'"]
+          Trigger --> GHATrigger["Trigger GitHub Actions Workflow"]
 
-    subgraph CI ["1. Continuous Integration & Quality Gate"]
-        GHATrigger --> Checkout["1.1 Checkout Code (actions/checkout@v4)"]
-        Checkout --> Setup["1.2 Setup Node.js & Cache Dependencies"]
-        Setup --> Install["1.3 Install Dependencies (npm ci)"]
-        Install --> Test["1.4 Execute Unit Tests (npm test)"]
-        Test --> TestDec{"Tests Passed?"}
-    end
+          subgraph CI ["1. Continuous Integration & Quality Gate"]
+          GHATrigger --> Checkout["1.1 Checkout Code (actions/checkout@v4)"]
+          Checkout --> Setup["1.2 Setup Node.js & Cache Dependencies"]
+          Setup --> Install["1.3 Install Dependencies (npm ci)"]
+          Install --> Test["1.4 Execute Unit Tests (npm test)"]
+          Test --> TestDec{"Tests Passed?"}
+          end
 
-    subgraph BUILD ["2. Multi-Stage Docker Build & GHCR Push"]
-        CheckType{"Trigger Type?"}
-        CheckType -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
-        CheckType -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
-        DevTag --> Buildx["2.1 Setup Buildx & Cache"]
-        ProdTag --> Buildx
-        Buildx --> PushGHCR["2.2 Build Image & Push to GHCR"]
-        PushGHCR --> BuildDec{"Build & Push Success?"}
-    end
+          subgraph BUILD ["2. Multi-Stage Docker Build & GHCR Push"]
+          CheckType{"Trigger Type?"}
+          CheckType -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
+          CheckType -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
+          DevTag --> Buildx["2.1 Setup Buildx & Cache"]
+          ProdTag --> Buildx
+          Buildx --> PushGHCR["2.2 Build Image & Push to GHCR"]
+          PushGHCR --> BuildDec{"Build & Push Success?"}
+          end
 
-    subgraph K8S ["3. Kubernetes Continuous Deployment"]
-        K8sAuth["3.1 Cluster Auth (KUBECONFIG)"]
-        K8sAuth --> ApplyK8s["3.2 Apply Manifests (Deploy / Svc / Ingress)"]
-        ApplyK8s --> SetImg["3.3 Update Container Image Tag"]
-        SetImg --> Rollout["3.4 Wait for Rollout (kubectl rollout status)"]
-        Rollout --> RolloutDec{"Rollout Healthy?"}
-    end
+          subgraph K8S ["3. Kubernetes Continuous Deployment"]
+          K8sAuth["3.1 Cluster Auth (KUBECONFIG)"]
+          K8sAuth --> ApplyK8s["3.2 Apply Manifests (Deploy / Svc / Ingress)"]
+          ApplyK8s --> SetImg["3.3 Update Container Image Tag"]
+          SetImg --> Rollout["3.4 Wait for Rollout (kubectl rollout status)"]
+          Rollout --> RolloutDec{"Rollout Healthy?"}
+          end
 
-    subgraph ALERTS ["4. Google Chat Notifications"]
-        FailAlert["🔴 Send Google Chat Failure Alert (Logs, Step, Commit, Author)"] --> TermFail(["● Terminated"])
-        SuccAlert["🟢 Send Google Chat Success Alert (Digest, Version, Status)"] --> TermSucc(["◎ Succeeded"])
-    end
+          subgraph ALERTS ["4. Google Chat Notifications"]
+          FailAlert["🔴 Send Google Chat Failure Alert (Logs, Step, Commit, Author)"] --> TermFail(["● Terminated"])
+          SuccAlert["🟢 Send Google Chat Success Alert (Digest, Version, Status)"] --> TermSucc(["◎ Succeeded"])
+          end
 
-    TestDec -->|"Yes (Pass)"| CheckType
-    BuildDec -->|"Yes (Success)"| K8sAuth
-    RolloutDec -->|"Yes (Healthy)"| SuccAlert
+          TestDec -->|"Yes (Pass)"| CheckType
+          BuildDec -->|"Yes (Success)"| K8sAuth
+          RolloutDec -->|"Yes (Healthy)"| SuccAlert
 
-    TestDec -->|"No (Fail-Fast)"| FailAlert
-    BuildDec -->|"No (Error)"| FailAlert
-    RolloutDec -->|"No (Timeout)"| FailAlert
+          TestDec -->|"No (Fail-Fast)"| FailAlert
+          BuildDec -->|"No (Error)"| FailAlert
+          RolloutDec -->|"No (Timeout)"| FailAlert
         </div>
       </div>
     </section>
@@ -486,14 +507,18 @@ flowchart TD
           <tr>
             <td><strong>Branch Push</strong></td>
             <td><code>refs/heads/main</code></td>
-            <td><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-&lt;sha&gt;</code><br/><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-latest</code></td>
+            <td>
+              <code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-&lt;sha&gt;</code><br /><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-latest</code>
+            </td>
             <td><span class="badge">Development</span></td>
             <td>Dev Namespace / Cluster Rollout</td>
           </tr>
           <tr>
             <td><strong>Release Tag</strong></td>
             <td><code>refs/tags/v*</code> (e.g. <code>v1.0.0</code>)</td>
-            <td><code>ghcr.io/&lt;user&gt;/ci-cd-kube:1.0.0</code><br/><code>ghcr.io/&lt;user&gt;/ci-cd-kube:latest</code></td>
+            <td>
+              <code>ghcr.io/&lt;user&gt;/ci-cd-kube:1.0.0</code><br /><code>ghcr.io/&lt;user&gt;/ci-cd-kube:latest</code>
+            </td>
             <td><span class="badge green">Production</span></td>
             <td>Prod Namespace / Cluster Rollout</td>
           </tr>
@@ -587,4 +612,5 @@ flowchart TD
     }
   </script>
 </body>
+
 </html>
