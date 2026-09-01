@@ -5,68 +5,53 @@ This document specifies the technical architecture and workflow logic of the **C
 
 ---
 
-## 📊 UML Activity Diagram (Balanced Landscape Architecture)
+## 📊 UML Activity Diagram (Master Architecture)
 
 The workflow is structured into **4 sequential execution phases**, combining horizontal phase progression with clear failure & recovery paths.
 
 ```mermaid
 flowchart TD
-    %% Global Styling
-    classDef startEnd fill:#1e293b,stroke:#38bdf8,stroke-width:2.5px,color:#f8fafc,font-weight:bold;
-    classDef action fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#e2e8f0;
-    classDef decision fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef fail fill:#450a0a,stroke:#ef4444,stroke-width:2px,color:#fee2e2;
-    classDef success fill:#052e16,stroke:#22c55e,stroke-width:2px,color:#dcfce7;
-    classDef branch fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#dbeafe;
+    StartNode(["● Start"]) --> Trigger["Git Event: Push on 'main' OR Tag 'v*'"]
+    Trigger --> GHATrigger["Trigger GitHub Actions Workflow"]
 
-    %% Phase 1: CI & Quality Gate
-    subgraph P1 ["🔹 PHASE 1: Trigger & Continuous Integration (CI)"]
-        direction LR
-        StartNode((● Start)):::startEnd --> Trigger[Git Event:<br/>Push 'main' OR Tag 'v*']:::action
-        Trigger --> Checkout[1.1 Checkout Code<br/>actions/checkout@v4]:::action
-        Checkout --> Setup[1.2 Setup Node.js &<br/>Cache Dependencies]:::action
-        Setup --> Install[1.3 Install Deps<br/>npm ci]:::action
-        Install --> Test[1.4 Execute Unit Tests<br/>npm test]:::action
-        Test --> TestDec{Tests<br/>Passed?}:::decision
+    subgraph CI ["1. Continuous Integration & Quality Gate"]
+        GHATrigger --> Checkout["1.1 Checkout Code (actions/checkout@v4)"]
+        Checkout --> Setup["1.2 Setup Node.js & Cache Dependencies"]
+        Setup --> Install["1.3 Install Dependencies (npm ci)"]
+        Install --> Test["1.4 Execute Unit Tests (npm test)"]
+        Test --> TestDec{"Tests Passed?"}
     end
 
-    %% Phase 2: Containerization & Registry
-    subgraph P2 ["🔹 PHASE 2: Multi-Stage Container Build & GHCR Push"]
-        direction LR
-        CheckType{Trigger<br/>Type?}:::decision -->|"Branch 'main'"| DevTag["Development Image<br/>Tags: dev-&lt;sha&gt;, dev-latest"]:::branch
-        CheckType -->|"Tag 'v*'"| ProdTag["Production Image<br/>Tags: &lt;vX.Y.Z&gt;, latest"]:::branch
-        DevTag --> Buildx[2.1 Docker Buildx<br/>Multi-Stage & Cache]:::action
+    subgraph BUILD ["2. Multi-Stage Docker Build & GHCR Push"]
+        CheckType{"Trigger Type?"}
+        CheckType -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
+        CheckType -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
+        DevTag --> Buildx["2.1 Setup Buildx & Cache"]
         ProdTag --> Buildx
-        Buildx --> PushGHCR[2.2 Auth & Push<br/>to ghcr.io]:::action
-        PushGHCR --> BuildDec{Build & Push<br/>Success?}:::decision
+        Buildx --> PushGHCR["2.2 Build Image & Push to GHCR"]
+        PushGHCR --> BuildDec{"Build & Push Success?"}
     end
 
-    %% Phase 3: Kubernetes CD
-    subgraph P3 ["🔹 PHASE 3: Kubernetes Continuous Deployment (CD)"]
-        direction LR
-        K8sAuth[3.1 Authenticate Cluster<br/>via KUBECONFIG]:::action --> ApplyK8s[3.2 Apply Manifests<br/>Deploy / Service / Ingress]:::action
-        ApplyK8s --> SetImg[3.3 Update Container<br/>Image Tag on Cluster]:::action
-        SetImg --> Rollout[3.4 Monitor Rollout<br/>kubectl rollout status (120s)]:::action
-        Rollout --> RolloutDec{Rollout<br/>Healthy?}:::decision
+    subgraph K8S ["3. Kubernetes Continuous Deployment"]
+        K8sAuth["3.1 Cluster Auth (KUBECONFIG)"]
+        K8sAuth --> ApplyK8s["3.2 Apply Manifests (Deploy / Svc / Ingress)"]
+        ApplyK8s --> SetImg["3.3 Update Container Image Tag"]
+        SetImg --> Rollout["3.4 Wait for Rollout (kubectl rollout status)"]
+        Rollout --> RolloutDec{"Rollout Healthy?"}
     end
 
-    %% Phase 4: SOAR Monitoring & Alerts
-    subgraph P4 ["🔹 PHASE 4: Monitoring, Alerting & Terminal State"]
-        direction LR
-        FailAlert[🔴 Dispatch Google Chat Failure Alert<br/>- Error logs & stack trace<br/>- Offending step & author]:::fail --> TermFail((● Terminated)):::fail
-        
-        SuccAlert[🟢 Dispatch Google Chat Success Alert<br/>- Commit SHA & Author<br/>- Image digest & K8s rollout status]:::success --> TermSucc((◎ Succeeded)):::startEnd
+    subgraph ALERTS ["4. Google Chat Notifications"]
+        FailAlert["🔴 Send Google Chat Failure Alert (Logs, Step, Commit, Author)"] --> TermFail(["● Terminated"])
+        SuccAlert["🟢 Send Google Chat Success Alert (Digest, Version, Status)"] --> TermSucc(["◎ Succeeded"])
     end
 
-    %% Phase Interconnections (Success Flow)
-    TestDec -->|✅ Passed| CheckType
-    BuildDec -->|✅ Succeeded| K8sAuth
-    RolloutDec -->|✅ Healthy| SuccAlert
+    TestDec -->|"Yes (Pass)"| CheckType
+    BuildDec -->|"Yes (Success)"| K8sAuth
+    RolloutDec -->|"Yes (Healthy)"| SuccAlert
 
-    %% Fail-Fast Connections
-    TestDec -->|❌ Failed (Fail-Fast)| FailAlert
-    BuildDec -->|❌ Failed| FailAlert
-    RolloutDec -->|❌ Failed (Timeout)| FailAlert
+    TestDec -->|"No (Fail-Fast)"| FailAlert
+    BuildDec -->|"No (Error)"| FailAlert
+    RolloutDec -->|"No (Timeout)"| FailAlert
 ```
 
 ---
