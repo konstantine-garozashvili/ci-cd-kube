@@ -24,6 +24,10 @@ const MATRIX = [
   { id: 'express-react-postgres', backend: 'express', frontend: 'react', database: 'postgres' },
   { id: 'express-vanilla-none', backend: 'express', frontend: 'vanilla', database: 'none' },
   { id: 'hono-vue-mongodb', backend: 'hono', frontend: 'vue', database: 'mongodb' },
+  // Hono is ESM, so it uses a different Prisma adapter than the CommonJS
+  // backends. Cover that pairing explicitly rather than inferring it from
+  // hono+mongo and express+postgres passing separately.
+  { id: 'hono-react-postgres', backend: 'hono', frontend: 'react', database: 'postgres' },
   { id: 'nestjs-nextjs-postgres', backend: 'nestjs', frontend: 'nextjs', database: 'postgres' },
   { id: 'express-api-only', backend: 'express', frontend: 'none', database: 'none' },
   { id: 'hono-api-only', backend: 'hono', frontend: 'none', database: 'mongodb' },

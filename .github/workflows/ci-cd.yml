@@ -87,6 +87,7 @@ jobs:
           - express-react-postgres
           - express-vanilla-none
           - hono-vue-mongodb
+          - hono-react-postgres
           - nestjs-nextjs-postgres
           - express-api-only
           - hono-api-only
