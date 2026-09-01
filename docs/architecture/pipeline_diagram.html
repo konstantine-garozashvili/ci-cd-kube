@@ -386,11 +386,11 @@
     <header>
       <div class="header-title">
         <h1>CI/CD & DevSecOps Pipeline Architecture</h1>
-        <p>Enterprise Quality & Security Blueprint: Gitleaks ➔ Lint ➔ SCA ➔ SAST ➔ Unit & Integration Tests ➔ Hadolint ➔ E2E Container Test ➔ Trivy ➔ GHCR ➔ Google Chat</p>
+        <p>Enterprise Quality & Security Blueprint: Gitleaks ➔ Lint ➔ SCA ➔ SAST ➔ Unit & Integration ➔ Playwright E2E ➔ Hadolint ➔ Trivy ➔ GHCR ➔ Google Chat</p>
         <div class="badge-group">
           <span class="badge">Repository: ci-cd-kube</span>
           <span class="badge green">🔑 Gitleaks Secret Detection</span>
-          <span class="badge purple">🧪 3-Tier Testing Pyramid</span>
+          <span class="badge purple">🎭 Playwright Pre-Build E2E</span>
           <span class="badge amber">🛡️ Trivy Container CVE Scan</span>
         </div>
       </div>
@@ -410,7 +410,7 @@
     <section class="card">
       <div class="card-header-flex">
         <div class="card-title">
-          <span>📊</span> Master UML Activity Diagram (DevSecOps + Testing Pyramid)
+          <span>📊</span> Master UML Activity Diagram (DevSecOps + Playwright E2E)
         </div>
         <div class="diagram-controls">
           <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
@@ -424,41 +424,41 @@
 flowchart TD
     StartNode(["● Start: Git Push or Tag"]) --> SecretGate
 
-    subgraph PHASE1 ["Phase 1: Shift-Left Security, Unit & Integration CI"]
+    subgraph PHASE1 ["Phase 1: Shift-Left Security & Full Testing Gate (CI)"]
         SecretGate["1.1 🔑 Gitleaks: Secret Detection"]
         SecretGate --> Lint["1.2 🧹 ESLint & Code Standards"]
         Lint --> DepAudit["1.3 📦 Dependency Audit (npm audit / SCA)"]
         DepAudit --> SAST["1.4 🔍 SAST Security Scan (Semgrep)"]
-        SAST --> UnitTests["1.5 🧪 Automated Unit Tests"]
-        UnitTests --> IntegrationTests["1.6 🔄 API Integration Tests (Supertest)"]
-        IntegrationTests --> Phase1Dec{"CI & Quality Gate Passed?"}
+        SAST --> UnitTests["1.5 🧪 Unit Tests (Jest)"]
+        UnitTests --> IntegrationTests["1.6 🔄 Integration Tests (Supertest)"]
+        IntegrationTests --> PlaywrightE2E["1.7 🎭 Playwright E2E Tests (Headless Browser Scenarios)"]
+        PlaywrightE2E --> Phase1Dec{"All Tests & Security Passed?"}
     end
 
-    subgraph PHASE2 ["Phase 2: Secure Build, E2E Container Test & GHCR"]
-        Hadolint["2.1 🐳 Hadolint: Dockerfile Lint"]
+    subgraph PHASE2 ["Phase 2: Secure Containerization & GHCR Push"]
+        Hadolint["2.1 🐳 Hadolint: Dockerfile Security Lint"]
         Hadolint --> CheckTrigger{"Trigger Type?"}
         CheckTrigger -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
         CheckTrigger -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
         DevTag --> DockerBuild["2.2 🏗️ Multi-Stage Docker Build"]
         ProdTag --> DockerBuild
-        DockerBuild --> E2ETests["2.3 🌐 E2E Live Container Tests (docker run + API suite)"]
-        E2ETests --> TrivyScan["2.4 🛡️ Trivy: Container Image CVE Scan"]
-        TrivyScan --> PushGHCR["2.5 🏷️ Authenticate & Push to GHCR"]
-        PushGHCR --> Phase2Dec{"Build & E2E Validation Success?"}
+        DockerBuild --> TrivyScan["2.3 🛡️ Trivy: Container Image CVE Scan"]
+        TrivyScan --> PushGHCR["2.4 🏷️ Authenticate & Push to GHCR"]
+        PushGHCR --> Phase2Dec{"Build & CVE Scan Success?"}
     end
 
     subgraph PHASE3 ["Phase 3: SOAR Monitoring & Google Chat Alerting"]
-        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Failed Level: Unit / Integration / E2E / Gitleaks / Trivy<br/>• Detailed Logs & Traceback<br/>• Commit, Author & Trigger"] --> TermFail(["● Terminated"])
-        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• Unit + Integration + E2E: 100% Passed<br/>• Security Checks: Clean<br/>• Image Published to GHCR"] --> TermSucc(["◎ Pipeline Succeeded"])
+        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Failed Check: Gitleaks / Lint / Unit / Integration / Playwright / Trivy<br/>• Error Logs & Diagnostic Summary<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
+        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• Security & Tests (Unit + Integration + Playwright): 100% Clear<br/>• Image Published to GHCR<br/>• SemVer / Dev Tag & Digest"] --> TermSucc(["◎ Pipeline Succeeded"])
     end
 
     %% Success Transitions
-    Phase1Dec -->|"Yes (All Unit & Integration OK)"| Hadolint
-    Phase2Dec -->|"Yes (E2E & CVE Scans Passed)"| SuccAlert
+    Phase1Dec -->|"Yes (All 3 Test Tiers + Security Clean)"| Hadolint
+    Phase2Dec -->|"Yes (Zero Critical CVEs & Pushed)"| SuccAlert
 
-    %% Fail-Fast Transitions
-    Phase1Dec -->|"No (Unit / Integration / Security Fail)"| FailAlert
-    Phase2Dec -->|"No (E2E / Docker / CVE / Push Fail)"| FailAlert
+    %% Fail-Fast Transitions (Immediate Alert & Terminate)
+    Phase1Dec -->|"No (Gitleaks / Lint / Unit / Integ / Playwright Fail)"| FailAlert
+    Phase2Dec -->|"No (Dockerfile Lint / Container CVE / Push Fail)"| FailAlert
         </div>
       </div>
     </section>
@@ -466,35 +466,35 @@ flowchart TD
     <!-- Testing Pyramid Strategy -->
     <section class="card">
       <div class="card-title">
-        <span>🧪</span> 3-Tier Testing Pyramid Architecture
+        <span>🧪</span> Pre-Build Testing Pyramid (All executed before Docker Build)
       </div>
       <table>
         <thead>
           <tr>
             <th>Testing Level</th>
-            <th>Execution Stage</th>
+            <th>Framework</th>
             <th>Scope & Objective</th>
-            <th>Tooling</th>
+            <th>Fail-Fast Benefit</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><strong>1. 🧪 Unit Tests</strong></td>
-            <td>Phase 1 (Pre-Build)</td>
-            <td>Tests pure functions and business logic modules in complete isolation.</td>
-            <td><code>Jest / Node Test Runner</code></td>
+            <td><code>Jest</code></td>
+            <td>Tests pure functions, utilities, and calculations in complete isolation.</td>
+            <td>Sub-second feedback on logic errors.</td>
           </tr>
           <tr>
             <td><strong>2. 🔄 Integration Tests</strong></td>
-            <td>Phase 1 (Pre-Build)</td>
-            <td>Tests HTTP endpoints (<code>GET /</code>, <code>GET /healthz</code>), route handlers, middleware.</td>
             <td><code>Supertest / Jest</code></td>
+            <td>Tests HTTP endpoints (<code>GET /</code>, <code>GET /healthz</code>), route handlers, middleware.</td>
+            <td>Catches broken routes & payload regressions.</td>
           </tr>
           <tr>
-            <td><strong>3. 🌐 E2E Container Tests</strong></td>
-            <td>Phase 2 (Post-Build)</td>
-            <td>Spins up the actual production Docker container (<code>docker run</code>) and executes full API requests to verify runtime health.</td>
-            <td><code>Automated Container Runner / curl</code></td>
+            <td><strong>3. 🎭 Playwright E2E Tests</strong></td>
+            <td><code>@playwright/test</code></td>
+            <td>Executes browser-level scenarios (Chromium/Firefox) against the application UI and APIs.</td>
+            <td>Guarantees zero UI/flow breakage <strong>before</strong> building Docker containers.</td>
           </tr>
         </tbody>
       </table>
@@ -514,7 +514,7 @@ flowchart TD
             <li><strong>ESLint / Prettier</strong>: Syntax & formatting quality.</li>
             <li><strong>npm audit (SCA)</strong>: Detects package CVEs.</li>
             <li><strong>Semgrep (SAST)</strong>: Finds code security bugs.</li>
-            <li><strong>Unit & Integration</strong>: Verifies logic & APIs.</li>
+            <li><strong>Unit, Integration & Playwright E2E</strong>: Complete functional coverage.</li>
           </ul>
         </div>
 
@@ -524,7 +524,6 @@ flowchart TD
           <ul>
             <li><strong>Hadolint</strong>: Dockerfile standards & non-root user.</li>
             <li><strong>Multi-Stage Build</strong>: Minimal attack surface.</li>
-            <li><strong>E2E Container Check</strong>: Verifies live startup.</li>
             <li><strong>Trivy Scan</strong>: Blocks High/Critical OS CVEs.</li>
             <li><strong>GHCR Push</strong>: Automatic release image publishing.</li>
           </ul>
@@ -535,7 +534,7 @@ flowchart TD
           <p>Real-time team notification with rich diagnostic payload.</p>
           <ul>
             <li>🟢 <strong>Success</strong>: All 3 testing tiers & security gates verified.</li>
-            <li>🔴 <strong>Failure</strong>: Pinpoints offending level (e.g. Unit / Integration / E2E / Gitleaks / Trivy), log extracts, and commit metadata.</li>
+            <li>🔴 <strong>Failure</strong>: Pinpoints offending level (e.g. Gitleaks / Playwright / Trivy), log extracts, and commit metadata.</li>
           </ul>
         </div>
       </div>
