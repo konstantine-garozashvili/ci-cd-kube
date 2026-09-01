@@ -157,25 +157,37 @@ jobs:
         if: env.GOOGLE_CHAT_WEBHOOK != ''
         env:
           GOOGLE_CHAT_WEBHOOK: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
-          PIPELINE_STATUS: ${{ needs.docker-build-push.result == 'success' && 'SUCCESS' || 'FAILURE' }}
+          BUILD_RESULT: ${{ needs.docker-build-push.result }}
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_RUN_ID: ${{ github.run_id }}
         run: |
-          STATUS_ICON="${{ env.PIPELINE_STATUS == 'SUCCESS' && '🟢' || '🔴' }}"
-          curl -s -X POST -H 'Content-Type: application/json' "$GOOGLE_CHAT_WEBHOOK" -d '{
-            "cardsV2": [{
-              "cardId": "pipelineStatusCard",
-              "card": {
-                "header": {
-                  "title": "'"$STATUS_ICON"' CI/CD Pipeline '"$PIPELINE_STATUS"'",
-                  "subtitle": "Repository: '"${{ github.repository }}"'"
+          if [ "$BUILD_RESULT" = "success" ]; then
+            PIPELINE_STATUS="SUCCESS"
+            STATUS_ICON="🟢"
+          else
+            PIPELINE_STATUS="FAILURE"
+            STATUS_ICON="🔴"
+          fi
+
+          curl -s -X POST -H 'Content-Type: application/json' "$GOOGLE_CHAT_WEBHOOK" -d "{
+            \"cardsV2\": [{
+              \"cardId\": \"pipelineStatusCard\",
+              \"card\": {
+                \"header\": {
+                  \"title\": \"$STATUS_ICON CI/CD Pipeline $PIPELINE_STATUS\",
+                  \"subtitle\": \"Repository: $GH_REPO\"
                 },
-                "sections": [{
-                  "widgets": [
-                    { "decoratedText": { "topLabel": "Commit", "text": "'"${{ github.sha }}"'" } },
-                    { "decoratedText": { "topLabel": "Author", "text": "'"${{ github.actor }}"'" } },
-                    { "decoratedText": { "topLabel": "Ref", "text": "'"${{ github.ref_name }}"'" } },
-                    { "buttonList": { "buttons": [{ "text": "View Action Run", "onClick": { "openLink": { "url": "https://github.com/'"${{ github.repository }}"'/actions/runs/'"${{ github.run_id }}"'" } } }] } }
+                \"sections\": [{
+                  \"widgets\": [
+                    { \"decoratedText\": { \"topLabel\": \"Commit\", \"text\": \"$GH_SHA\" } },
+                    { \"decoratedText\": { \"topLabel\": \"Author\", \"text\": \"$GH_ACTOR\" } },
+                    { \"decoratedText\": { \"topLabel\": \"Ref\", \"text\": \"$GH_REF_NAME\" } },
+                    { \"buttonList\": { \"buttons\": [{ \"text\": \"View Action Run\", \"onClick\": { \"openLink\": { \"url\": \"https://github.com/$GH_REPO/actions/runs/$GH_RUN_ID\" } } }] } }
                   ]
                 }]
               }
             }]
-          }' || true
+          }" || true

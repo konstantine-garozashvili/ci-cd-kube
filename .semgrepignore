@@ -1,0 +1,9 @@
+# Semgrep Ignore Patterns
+docs/
+tests/
+test-results/
+playwright-report/
+coverage/
+node_modules/
+dist/
+*.min.js
