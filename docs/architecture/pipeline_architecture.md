@@ -1,100 +1,83 @@
-# 🏗️ CI/CD Pipeline Architecture & UML Activity Diagram
+# 🏗️ CI/CD & DevSecOps Pipeline Architecture
 
 ## 📌 Overview
-This document specifies the technical architecture and workflow logic of the **Continuous Integration (CI) and Continuous Deployment (CD)** pipeline for the `ci-cd-kube` project. The automated pipeline is powered by **GitHub Actions**, containerized with **Docker**, stored in **GitHub Container Registry (GHCR)**, deployed to **Kubernetes**, and monitored with automated **Google Chat** notifications.
+This document specifies the technical architecture and workflow logic of the **Continuous Integration (CI) and Secure Container Publishing** pipeline for the `ci-cd-kube` project. The automated pipeline enforces **Shift-Left Security**, automated code quality, Docker multi-stage builds, container vulnerability scanning, **GitHub Container Registry (GHCR)** publication, and real-time **Google Chat** alerting.
+
+*(Note: Kubernetes deployment stages are maintained as a subsequent roadmap milestone).*
 
 ---
 
-## 📊 UML Activity Diagram (Master Architecture)
+## 📊 UML Activity Diagram (DevSecOps Pipeline)
 
-The workflow is structured into **4 sequential execution phases**, combining horizontal phase progression with clear failure & recovery paths.
+The workflow executes in **3 comprehensive phases**, prioritizing security scanning at every gate with immediate fail-fast error reporting.
 
 ```mermaid
 flowchart TD
-    StartNode(["● Start"]) --> Trigger["Git Event: Push on 'main' OR Tag 'v*'"]
-    Trigger --> GHATrigger["Trigger GitHub Actions Workflow"]
+    StartNode(["● Start: Git Push or Tag"]) --> SecretGate
 
-    subgraph CI ["1. Continuous Integration & Quality Gate"]
-        GHATrigger --> Checkout["1.1 Checkout Code (actions/checkout@v4)"]
-        Checkout --> Setup["1.2 Setup Node.js & Cache Dependencies"]
-        Setup --> Install["1.3 Install Dependencies (npm ci)"]
-        Install --> Test["1.4 Execute Unit Tests (npm test)"]
-        Test --> TestDec{"Tests Passed?"}
+    subgraph PHASE1 ["Phase 1: Shift-Left Security & Quality Gate (CI)"]
+        SecretGate["1.1 🔑 Gitleaks: Scan for Exposed Secrets & Keys"]
+        SecretGate --> Lint["1.2 🧹 Code Quality & Linting (ESLint / Formatter)"]
+        Lint --> DepAudit["1.3 📦 Dependency Vulnerability Audit (npm audit / SCA)"]
+        DepAudit --> SAST["1.4 🔍 SAST Static Code Analysis (Semgrep)"]
+        SAST --> UnitTests["1.5 🧪 Automated Unit Tests & Coverage Check"]
+        UnitTests --> Phase1Dec{"Quality Gate Passed?"}
     end
 
-    subgraph BUILD ["2. Multi-Stage Docker Build & GHCR Push"]
-        CheckType{"Trigger Type?"}
-        CheckType -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
-        CheckType -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
-        DevTag --> Buildx["2.1 Setup Buildx & Cache"]
-        ProdTag --> Buildx
-        Buildx --> PushGHCR["2.2 Build Image & Push to GHCR"]
-        PushGHCR --> BuildDec{"Build & Push Success?"}
+    subgraph PHASE2 ["Phase 2: Secure Containerization & GHCR Push"]
+        Hadolint["2.1 🐳 Hadolint: Dockerfile Security & Best Practices"]
+        Hadolint --> CheckTrigger{"Trigger Type?"}
+        CheckTrigger -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
+        CheckTrigger -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
+        DevTag --> DockerBuild["2.2 🏗️ Multi-Stage Docker Image Build"]
+        ProdTag --> DockerBuild
+        DockerBuild --> TrivyScan["2.3 🛡️ Trivy: Container Image CVE Scan"]
+        TrivyScan --> PushGHCR["2.4 🏷️ Authenticate & Push to GHCR"]
+        PushGHCR --> Phase2Dec{"Build & Push Success?"}
     end
 
-    subgraph K8S ["3. Kubernetes Continuous Deployment"]
-        K8sAuth["3.1 Cluster Auth (KUBECONFIG)"]
-        K8sAuth --> ApplyK8s["3.2 Apply Manifests (Deploy / Svc / Ingress)"]
-        ApplyK8s --> SetImg["3.3 Update Container Image Tag"]
-        SetImg --> Rollout["3.4 Wait for Rollout (kubectl rollout status)"]
-        Rollout --> RolloutDec{"Rollout Healthy?"}
+    subgraph PHASE3 ["Phase 3: SOAR Monitoring & Google Chat Alerting"]
+        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Offending Stage: Gitleaks / Lint / Tests / Docker / Trivy<br/>• Error Logs & Diagnostic Summary<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
+        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• Security Checks: 100% Clear<br/>• Image Published to GHCR<br/>• SemVer / Dev Tag & Digest"] --> TermSucc(["◎ Pipeline Succeeded"])
     end
 
-    subgraph ALERTS ["4. Google Chat Notifications"]
-        FailAlert["🔴 Send Google Chat Failure Alert (Logs, Step, Commit, Author)"] --> TermFail(["● Terminated"])
-        SuccAlert["🟢 Send Google Chat Success Alert (Digest, Version, Status)"] --> TermSucc(["◎ Succeeded"])
-    end
+    %% Success Transitions
+    Phase1Dec -->|"Yes (All Checks Passed)"| Hadolint
+    Phase2Dec -->|"Yes (Zero Critical CVEs & Pushed)"| SuccAlert
 
-    TestDec -->|"Yes (Pass)"| CheckType
-    BuildDec -->|"Yes (Success)"| K8sAuth
-    RolloutDec -->|"Yes (Healthy)"| SuccAlert
-
-    TestDec -->|"No (Fail-Fast)"| FailAlert
-    BuildDec -->|"No (Error)"| FailAlert
-    RolloutDec -->|"No (Timeout)"| FailAlert
+    %% Fail-Fast Transitions (Immediate Alert & Terminate)
+    Phase1Dec -->|"No (Secret Leak / Lint / CVE / Test Failure)"| FailAlert
+    Phase2Dec -->|"No (Dockerfile Lint / Image CVE / Push Error)"| FailAlert
 ```
 
 ---
 
-## 🔄 Detailed Pipeline Stages & Logic
+## 🛡️ Detailed DevSecOps Pipeline Stages
 
-### 1. Triggers & Event Filtering
-| Trigger Event | Git Ref | Target Image Tags | Environment Target |
+### 1. Triggers & Tagging Rules
+| Git Trigger | Git Reference | Target Docker Image Tags | Environment Target |
 |---|---|---|---|
-| **Code Push** | `refs/heads/main` | `ghcr.io/.../app:dev-<sha>`, `ghcr.io/.../app:dev-latest` | `development` |
+| **Branch Push** | `refs/heads/main` | `ghcr.io/.../app:dev-<sha>`, `ghcr.io/.../app:dev-latest` | `development` |
 | **Release Tag** | `refs/tags/v*` (e.g. `v1.0.0`) | `ghcr.io/.../app:1.0.0`, `ghcr.io/.../app:latest` | `production` |
 
 ---
 
-### 2. Stage-by-Stage Breakdown
+### 2. Stage Breakdown & Tools
 
-#### **Phase 1: Checkout & Automated Testing (CI Quality Gate)**
-- **Fail-Fast Mechanism**: If any unit/integration test fails, execution halts immediately with exit code `1`.
-- Subsequent build and deploy jobs are skipped.
-- An alert is immediately prepared for dispatch.
+#### **Phase 1: Shift-Left Security & CI Quality Gate**
+1. **🔑 Gitleaks**: Scans commits and repository diffs to prevent secrets, tokens, API keys, or private SSH keys from being exposed.
+2. **🧹 ESLint & Prettier**: Enforces consistent code styles, prevents anti-patterns, and ensures code correctness.
+3. **📦 Dependency Audit (SCA)**: Scans third-party packages for known vulnerabilities (CVEs) and fails on High/Critical severity.
+4. **🔍 SAST (Semgrep)**: Scans application code for security flaws (e.g., injections, insecure configurations) before build.
+5. **🧪 Unit & Integration Testing**: Automated tests run with code coverage verification.
 
-#### **Phase 2: Containerization & Registry Push**
-- Multi-stage `Dockerfile` ensures the production runtime container contains only compiled production assets and no dev-dependencies.
-- GitHub Actions cache (`type=gha`) accelerates layer builds.
-- Authentication against GitHub Container Registry (`ghcr.io`) utilizes GitHub's native scoped `GITHUB_TOKEN`.
+#### **Phase 2: Secure Containerization & GHCR**
+1. **🐳 Hadolint**: Lints `Dockerfile` against CIS benchmarks (ensures non-root user, minimal layers, pinned dependencies).
+2. **🏗️ Multi-Stage Build**: Separates build tooling from the runtime environment to minimize final container attack surface.
+3. **🛡️ Trivy (Aqua Security)**: Scans the constructed container image for operating system and binary vulnerabilities before pushing.
+4. **🏷️ GHCR Publishing**: Authenticates with `GITHUB_TOKEN` and publishes the image with dev or production SemVer tags.
 
-#### **Phase 3: Kubernetes Continuous Deployment (CD)**
-- Cluster authentication using secured `KUBECONFIG` secret.
-- Application manifests deployed:
-  - `Deployment`: Manages pod replicas, zero-downtime rolling updates, resource requests/limits, and health probes (`livenessProbe`, `readinessProbe`).
-  - `Service`: Exposes pods internally within cluster (`ClusterIP`).
-  - `Ingress`: Routes HTTP traffic from external ingress controller.
-  - `ConfigMap` / `Secret`: Injects environment variables.
-- Verification command: `kubectl rollout status deployment/ci-cd-kube-app --timeout=120s`.
-
-#### **Phase 4: Google Chat Webhook Alerting**
-- Executed on `if: always()` condition to guarantee dispatch regardless of job status.
-- **Success Card (🟢)**: Includes Commit SHA, author name, branch/tag name, image digest, deployed namespace, and link to workflow run.
-- **Failure Card (🔴)**: Highlights the specific stage that broke (Tests, Docker, K8s), error log extract, author to notify, and workflow link for immediate triage.
-
----
-
-## 🛡️ SOAR & Resilience Principles Applied
-1. **Automated Rollback Safeguard**: If `kubectl rollout status` fails within the 120s window, Kubernetes maintains traffic on previous healthy pods.
-2. **Immutable Artifacts**: Production container tags match explicit SemVer Git tags (`v1.0.0`), guaranteeing reproducibility.
-3. **Secret Isolation**: Sensitive credentials (`KUBECONFIG`, `GOOGLE_CHAT_WEBHOOK_URL`) are isolated within GitHub Actions Secrets and masked from console output.
+#### **Phase 3: SOAR Google Chat Alerting**
+- Always runs on workflow termination (`if: always()`).
+- **Success (🟢)**: Confirms all security checks passed, provides image tag, digest, author, and run link.
+- **Failure (🔴)**: Pinpoints the exact security gate or test that failed, attaches log snippet, and alerts the author.

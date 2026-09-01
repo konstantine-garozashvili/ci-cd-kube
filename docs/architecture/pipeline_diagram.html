@@ -1,21 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CI/CD Pipeline Architecture & UML Activity Diagram</title>
-
+  <title>CI/CD & DevSecOps Pipeline Architecture</title>
+  
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
-    rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
   <!-- Mermaid.js -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-
+  
   <style>
     :root {
       --bg-primary: #0a0e17;
@@ -224,15 +221,15 @@
 
     .mermaid svg {
       width: 100% !important;
-      max-width: 1000px !important;
+      max-width: 1050px !important;
       height: auto !important;
     }
 
     /* Grid */
-    .grid-4 {
+    .grid-3 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
       margin-top: 1rem;
     }
 
@@ -240,42 +237,33 @@
       background: var(--bg-card);
       border-left: 4px solid var(--accent-blue);
       border-radius: 8px;
-      padding: 1.1rem;
+      padding: 1.2rem;
     }
 
-    .step-box.purple {
-      border-left-color: var(--accent-purple);
-    }
-
-    .step-box.green {
-      border-left-color: var(--accent-green);
-    }
-
-    .step-box.amber {
-      border-left-color: var(--accent-amber);
-    }
+    .step-box.purple { border-left-color: var(--accent-purple); }
+    .step-box.green { border-left-color: var(--accent-green); }
+    .step-box.amber { border-left-color: var(--accent-amber); }
 
     .step-box h3 {
       font-family: var(--font-heading);
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       font-weight: 600;
       color: #f9fafb;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.5rem;
     }
 
-    .step-box p,
-    .step-box ul {
-      font-size: 0.88rem;
+    .step-box p, .step-box ul {
+      font-size: 0.9rem;
       color: var(--text-muted);
     }
 
     .step-box ul {
-      margin-left: 1.1rem;
-      margin-top: 0.35rem;
+      margin-left: 1.2rem;
+      margin-top: 0.4rem;
     }
 
     .step-box li {
-      margin-bottom: 0.2rem;
+      margin-bottom: 0.3rem;
     }
 
     /* Tables */
@@ -286,8 +274,7 @@
       font-size: 0.92rem;
     }
 
-    th,
-    td {
+    th, td {
       padding: 0.75rem 1rem;
       text-align: left;
       border-bottom: 1px solid var(--border-color);
@@ -316,7 +303,7 @@
     /* Print Stylesheet for Landscape PDF */
     @media print {
       @page {
-        size: A4 landscape;
+        size: A4 portrait;
         margin: 0.8cm;
       }
 
@@ -331,9 +318,7 @@
         max-width: 100% !important;
       }
 
-      .actions,
-      .badge-group,
-      .diagram-controls {
+      .actions, .badge-group, .diagram-controls {
         display: none !important;
       }
 
@@ -366,14 +351,11 @@
         border-width: 2px !important;
       }
 
-      .step-box h3,
-      .card-title {
+      .step-box h3, .card-title {
         color: #111827 !important;
       }
 
-      .step-box p,
-      .step-box ul,
-      td {
+      .step-box p, .step-box ul, td {
         color: #374151 !important;
       }
 
@@ -396,33 +378,30 @@
     }
   </style>
 </head>
-
 <body>
 
   <div class="container">
-
+    
     <!-- Top Bar / Header -->
     <header>
       <div class="header-title">
-        <h1>CI/CD Pipeline Architecture & UML Diagram</h1>
-        <p>Complete execution workflow blueprint: GitHub Actions ➔ Docker Multi-Stage ➔ GHCR ➔ Kubernetes ➔ Google Chat
-        </p>
+        <h1>CI/CD & DevSecOps Pipeline Architecture</h1>
+        <p>Enterprise Quality & Security Blueprint: Gitleaks ➔ Lint & SCA ➔ SAST ➔ Tests ➔ Hadolint ➔ Trivy ➔ GHCR ➔ Google Chat</p>
         <div class="badge-group">
           <span class="badge">Repository: ci-cd-kube</span>
-          <span class="badge green">Fail-Fast Quality Gate</span>
-          <span class="badge purple">Kubernetes Continuous Deployment</span>
+          <span class="badge green">🔑 Gitleaks Secret Detection</span>
+          <span class="badge purple">🛡️ Trivy Container CVE Scan</span>
           <span class="badge amber">Google Chat SOAR Alerting</span>
         </div>
       </div>
       <div class="actions">
         <button class="btn" onclick="window.print()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 6 2 18 2 18 9"></polyline>
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
             <rect x="6" y="14" width="12" height="8"></rect>
           </svg>
-          Export Landscape PDF / Print
+          Export to PDF / Print
         </button>
       </div>
     </header>
@@ -431,7 +410,7 @@
     <section class="card">
       <div class="card-header-flex">
         <div class="card-title">
-          <span>📊</span> Master UML Activity Diagram
+          <span>📊</span> Master UML Activity Diagram (DevSecOps Pipeline)
         </div>
         <div class="diagram-controls">
           <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
@@ -442,48 +421,42 @@
 
       <div class="diagram-container">
         <div class="mermaid" id="diagram">
-          flowchart TD
-          StartNode(["● Start"]) --> Trigger["Git Event: Push on 'main' OR Tag 'v*'"]
-          Trigger --> GHATrigger["Trigger GitHub Actions Workflow"]
+flowchart TD
+    StartNode(["● Start: Git Push or Tag"]) --> SecretGate
 
-          subgraph CI ["1. Continuous Integration & Quality Gate"]
-          GHATrigger --> Checkout["1.1 Checkout Code (actions/checkout@v4)"]
-          Checkout --> Setup["1.2 Setup Node.js & Cache Dependencies"]
-          Setup --> Install["1.3 Install Dependencies (npm ci)"]
-          Install --> Test["1.4 Execute Unit Tests (npm test)"]
-          Test --> TestDec{"Tests Passed?"}
-          end
+    subgraph PHASE1 ["Phase 1: Shift-Left Security & Quality Gate (CI)"]
+        SecretGate["1.1 🔑 Gitleaks: Scan for Exposed Secrets & Keys"]
+        SecretGate --> Lint["1.2 🧹 Code Quality & Linting (ESLint / Formatter)"]
+        Lint --> DepAudit["1.3 📦 Dependency Vulnerability Audit (npm audit / SCA)"]
+        DepAudit --> SAST["1.4 🔍 SAST Static Code Analysis (Semgrep)"]
+        SAST --> UnitTests["1.5 🧪 Automated Unit Tests & Coverage Check"]
+        UnitTests --> Phase1Dec{"Quality Gate Passed?"}
+    end
 
-          subgraph BUILD ["2. Multi-Stage Docker Build & GHCR Push"]
-          CheckType{"Trigger Type?"}
-          CheckType -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
-          CheckType -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
-          DevTag --> Buildx["2.1 Setup Buildx & Cache"]
-          ProdTag --> Buildx
-          Buildx --> PushGHCR["2.2 Build Image & Push to GHCR"]
-          PushGHCR --> BuildDec{"Build & Push Success?"}
-          end
+    subgraph PHASE2 ["Phase 2: Secure Containerization & GHCR Push"]
+        Hadolint["2.1 🐳 Hadolint: Dockerfile Security & Best Practices"]
+        Hadolint --> CheckTrigger{"Trigger Type?"}
+        CheckTrigger -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
+        CheckTrigger -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
+        DevTag --> DockerBuild["2.2 🏗️ Multi-Stage Docker Image Build"]
+        ProdTag --> DockerBuild
+        DockerBuild --> TrivyScan["2.3 🛡️ Trivy: Container Image CVE Scan"]
+        TrivyScan --> PushGHCR["2.4 🏷️ Authenticate & Push to GHCR"]
+        PushGHCR --> Phase2Dec{"Build & Push Success?"}
+    end
 
-          subgraph K8S ["3. Kubernetes Continuous Deployment"]
-          K8sAuth["3.1 Cluster Auth (KUBECONFIG)"]
-          K8sAuth --> ApplyK8s["3.2 Apply Manifests (Deploy / Svc / Ingress)"]
-          ApplyK8s --> SetImg["3.3 Update Container Image Tag"]
-          SetImg --> Rollout["3.4 Wait for Rollout (kubectl rollout status)"]
-          Rollout --> RolloutDec{"Rollout Healthy?"}
-          end
+    subgraph PHASE3 ["Phase 3: SOAR Monitoring & Google Chat Alerting"]
+        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Offending Stage: Gitleaks / Lint / Tests / Docker / Trivy<br/>• Error Logs & Diagnostic Summary<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
+        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• Security Checks: 100% Clear<br/>• Image Published to GHCR<br/>• SemVer / Dev Tag & Digest"] --> TermSucc(["◎ Pipeline Succeeded"])
+    end
 
-          subgraph ALERTS ["4. Google Chat Notifications"]
-          FailAlert["🔴 Send Google Chat Failure Alert (Logs, Step, Commit, Author)"] --> TermFail(["● Terminated"])
-          SuccAlert["🟢 Send Google Chat Success Alert (Digest, Version, Status)"] --> TermSucc(["◎ Succeeded"])
-          end
+    %% Success Transitions
+    Phase1Dec -->|"Yes (All Checks Passed)"| Hadolint
+    Phase2Dec -->|"Yes (Zero Critical CVEs & Pushed)"| SuccAlert
 
-          TestDec -->|"Yes (Pass)"| CheckType
-          BuildDec -->|"Yes (Success)"| K8sAuth
-          RolloutDec -->|"Yes (Healthy)"| SuccAlert
-
-          TestDec -->|"No (Fail-Fast)"| FailAlert
-          BuildDec -->|"No (Error)"| FailAlert
-          RolloutDec -->|"No (Timeout)"| FailAlert
+    %% Fail-Fast Transitions (Immediate Alert & Terminate)
+    Phase1Dec -->|"No (Secret Leak / Lint / CVE / Test Failure)"| FailAlert
+    Phase2Dec -->|"No (Dockerfile Lint / Image CVE / Push Error)"| FailAlert
         </div>
       </div>
     </section>
@@ -500,27 +473,23 @@
             <th>Git Reference</th>
             <th>Generated Docker Image Tags</th>
             <th>Environment</th>
-            <th>Continuous Deployment Target</th>
+            <th>Registry Target</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><strong>Branch Push</strong></td>
             <td><code>refs/heads/main</code></td>
-            <td>
-              <code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-&lt;sha&gt;</code><br /><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-latest</code>
-            </td>
+            <td><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-&lt;sha&gt;</code><br/><code>ghcr.io/&lt;user&gt;/ci-cd-kube:dev-latest</code></td>
             <td><span class="badge">Development</span></td>
-            <td>Dev Namespace / Cluster Rollout</td>
+            <td>GitHub Packages (GHCR)</td>
           </tr>
           <tr>
             <td><strong>Release Tag</strong></td>
             <td><code>refs/tags/v*</code> (e.g. <code>v1.0.0</code>)</td>
-            <td>
-              <code>ghcr.io/&lt;user&gt;/ci-cd-kube:1.0.0</code><br /><code>ghcr.io/&lt;user&gt;/ci-cd-kube:latest</code>
-            </td>
+            <td><code>ghcr.io/&lt;user&gt;/ci-cd-kube:1.0.0</code><br/><code>ghcr.io/&lt;user&gt;/ci-cd-kube:latest</code></td>
             <td><span class="badge green">Production</span></td>
-            <td>Prod Namespace / Cluster Rollout</td>
+            <td>GitHub Packages (GHCR)</td>
           </tr>
         </tbody>
       </table>
@@ -529,42 +498,38 @@
     <!-- Key Stage Specifications -->
     <section class="card">
       <div class="card-title">
-        <span>🚀</span> Stage Specifications & Quality Gates
+        <span>🛡️</span> Security & Quality Gates Specification
       </div>
-      <div class="grid-4">
+      <div class="grid-3">
         <div class="step-box">
-          <h3>1. Quality Gate</h3>
-          <p>Automated test suite with strict fail-fast execution.</p>
+          <h3>1. Shift-Left Security & CI</h3>
+          <p>Multi-layered validation executed before any build artifact is created.</p>
           <ul>
-            <li>Dependency caching</li>
-            <li>Zero-tolerance test failure</li>
+            <li><strong>Gitleaks</strong>: Blocks hardcoded secrets/passwords.</li>
+            <li><strong>ESLint / Prettier</strong>: Syntax & formatting quality.</li>
+            <li><strong>npm audit (SCA)</strong>: Detects package CVEs.</li>
+            <li><strong>Semgrep (SAST)</strong>: Finds code security bugs.</li>
+            <li><strong>Unit Tests</strong>: Verifies logic & coverage.</li>
           </ul>
         </div>
 
         <div class="step-box purple">
-          <h3>2. Container Build</h3>
-          <p>Multi-stage Docker builds pushed to GHCR.</p>
+          <h3>2. Container Security & GHCR</h3>
+          <p>Security hardening from Dockerfile linting to binary CVE scanning.</p>
           <ul>
-            <li>Non-root user execution</li>
-            <li>Layer cache acceleration</li>
-          </ul>
-        </div>
-
-        <div class="step-box green">
-          <h3>3. Kubernetes CD</h3>
-          <p>Declarative continuous delivery rollout.</p>
-          <ul>
-            <li>Automated image update</li>
-            <li>Rollout health verification</li>
+            <li><strong>Hadolint</strong>: Dockerfile standards & non-root user.</li>
+            <li><strong>Multi-Stage Build</strong>: Minimal attack surface.</li>
+            <li><strong>Trivy Scan</strong>: Blocks High/Critical OS vulnerabilities.</li>
+            <li><strong>GHCR Push</strong>: Automatic release image publishing.</li>
           </ul>
         </div>
 
         <div class="step-box amber">
-          <h3>4. Alerting</h3>
-          <p>Instant Google Chat webhook notification.</p>
+          <h3>3. SOAR Google Chat Alerting</h3>
+          <p>Real-time team notification with rich diagnostic payload.</p>
           <ul>
-            <li>🟢 Success metrics card</li>
-            <li>🔴 Failure diagnostics card</li>
+            <li>🟢 <strong>Success</strong>: All security gates verified & digest reported.</li>
+            <li>🔴 <strong>Failure</strong>: Pinpoints offending tool (e.g. Gitleaks secret leak), log extracts, and commit metadata.</li>
           </ul>
         </div>
       </div>
@@ -612,5 +577,4 @@
     }
   </script>
 </body>
-
 </html>
