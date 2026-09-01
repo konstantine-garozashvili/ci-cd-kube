@@ -1,10 +1,31 @@
 {
-  "name": "ci-cd-kube",
+  "name": "laplateforme-cli",
   "version": "1.0.0",
-  "description": "Enterprise DevSecOps Golden Template & Cloud-Native Starter Framework",
+  "description": "La Plateforme - Enterprise DevSecOps Scaffolding Engine & Cloud-Native Starter Framework",
   "main": "src/server.js",
   "bin": {
-    "devsecops-init": "./bin/cli.js"
+    "laplateforme": "./bin/cli.js",
+    "create-laplateforme": "./bin/cli.js",
+    "laplateforme-cli": "./bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "tests",
+    ".eslintrc.json",
+    ".prettierrc",
+    ".gitleaks.toml",
+    ".semgrepignore",
+    ".dockerignore",
+    "jest.config.js",
+    "playwright.config.js",
+    "Dockerfile",
+    ".env.example",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -20,12 +41,13 @@
     "test:e2e": "playwright test",
     "init": "node bin/cli.js",
     "scan:secrets": "gitleaks detect --verbose",
-    "scan:sast": "semgrep scan --config=\"p/owasp-top-ten\""
+    "scan:sast": "semgrep scan --config=\"p/owasp-top-ten\" src"
   },
   "keywords": [
+    "laplateforme",
     "devsecops",
+    "scaffolding",
     "ci-cd",
-    "template",
     "express",
     "hono",
     "nestjs",
