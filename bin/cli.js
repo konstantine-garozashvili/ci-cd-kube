@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { spawnSync } = require('child_process');
 const { generateGitHubWorkflow, generateDockerfile } = require('../templates/generator');
 
 // ANSI Colors
@@ -22,7 +23,7 @@ function printBanner() {
   console.log(`
 ${colors.cyan}${colors.bright}┌──────────────────────────────────────────────────────────────────┐
 │  🏛️  LA PLATEFORME — Enterprise DevSecOps Scaffolder              │
-│  Zero-Config Security, CI/CD, Testing & Cloud-Native Boilerplate │
+│  Zero-Config Security, CI/CD, Testing & Fullstack Boilerplate    │
 └──────────────────────────────────────────────────────────────────┘${colors.reset}
 `);
 }
@@ -72,7 +73,6 @@ async function runWizard() {
 ${colors.bright}Usage:${colors.reset}
   npx laplateforme-starter [target-dir]
   npx laplateforme-starter init [target-dir]
-  npm create laplateforme-starter [target-dir]
 
 ${colors.bright}Options:${colors.reset}
   --defaults     Scaffold project with default Express.js + DevSecOps stack
@@ -86,32 +86,47 @@ ${colors.bright}Options:${colors.reset}
 
   const rl = createPrompt();
 
-  let appName = targetDirInput || 'laplateforme-app';
-  let framework = 'express';
+  let appName = targetDirInput || 'my-laplateforme-app';
+  let backendFw = 'express';
+  let frontendFw = 'none';
   let database = 'none';
+  let autoInstall = 'y';
+  let autoGit = 'y';
 
   if (!isDefaults) {
-    console.log(`${colors.bright}📦 Step 1: Project Metadata${colors.reset}`);
-    appName = await ask(rl, `${colors.yellow}?${colors.reset} Project Name / Target Directory`, appName);
+    console.log(`${colors.bright}📦 Step 1: Project Setup${colors.reset}`);
+    appName = await ask(rl, `${colors.yellow}?${colors.reset} Project Name / Directory`, appName);
 
     console.log(`\n${colors.bright}⚡ Step 2: Backend Framework Selection${colors.reset}`);
     console.log(`  1. Express.js   ${colors.dim}(Battle-tested, lightweight, minimal)${colors.reset}`);
     console.log(`  2. Hono         ${colors.dim}(Ultrafast, modern Web Standards, TypeScript-first)${colors.reset}`);
-    console.log(`  3. NestJS       ${colors.dim}(Enterprise architecture, TypeScript, modular)${colors.reset}`);
-    console.log(`  4. Next.js      ${colors.dim}(Fullstack React, App Router, SSR & APIs)${colors.reset}`);
-    const fwChoice = await ask(rl, `${colors.yellow}?${colors.reset} Choose Framework [1-4]`, '1');
+    console.log(`  3. NestJS       ${colors.dim}(Enterprise modular architecture, TypeScript)${colors.reset}`);
+    console.log(`  4. None / Serverless API${colors.reset}`);
+    const beChoice = await ask(rl, `${colors.yellow}?${colors.reset} Choose Backend [1-4]`, '1');
+    const beMap = { '1': 'express', '2': 'hono', '3': 'nestjs', '4': 'none' };
+    backendFw = beMap[beChoice] || 'express';
 
-    const frameworkMap = { '1': 'express', '2': 'hono', '3': 'nestjs', '4': 'nextjs' };
-    framework = frameworkMap[fwChoice] || 'express';
+    console.log(`\n${colors.bright}🎨 Step 3: Frontend Framework Selection${colors.reset}`);
+    console.log(`  1. None         ${colors.dim}(REST API / Microservice only)${colors.reset}`);
+    console.log(`  2. React + Vite ${colors.dim}(Fast Single Page Application SPA)${colors.reset}`);
+    console.log(`  3. Next.js      ${colors.dim}(Fullstack React, SSR & App Router)${colors.reset}`);
+    console.log(`  4. Vue + Vite   ${colors.dim}(Modern Vue 3 SPA)${colors.reset}`);
+    console.log(`  5. Vanilla UI   ${colors.dim}(Clean HTML5 + Modern CSS Dashboard)${colors.reset}`);
+    const feChoice = await ask(rl, `${colors.yellow}?${colors.reset} Choose Frontend [1-5]`, '5');
+    const feMap = { '1': 'none', '2': 'react', '3': 'nextjs', '4': 'vue', '5': 'vanilla' };
+    frontendFw = feMap[feChoice] || 'vanilla';
 
-    console.log(`\n${colors.bright}🗄️ Step 3: Database & ORM Selection${colors.reset}`);
-    console.log(`  1. None         ${colors.dim}(In-memory / Stateless API)${colors.reset}`);
-    console.log(`  2. PostgreSQL   ${colors.dim}(Prisma ORM + CI Test Service Container)${colors.reset}`);
+    console.log(`\n${colors.bright}🗄️ Step 4: Database & ORM Selection${colors.reset}`);
+    console.log(`  1. None         ${colors.dim}(Stateless / In-Memory)${colors.reset}`);
+    console.log(`  2. PostgreSQL   ${colors.dim}(Prisma ORM + Automated CI Test Service Container)${colors.reset}`);
     console.log(`  3. MongoDB      ${colors.dim}(Mongoose / Mongo CI Service)${colors.reset}`);
     const dbChoice = await ask(rl, `${colors.yellow}?${colors.reset} Choose Database [1-3]`, '1');
-
     const dbMap = { '1': 'none', '2': 'postgres', '3': 'mongodb' };
     database = dbMap[dbChoice] || 'none';
+
+    console.log(`\n${colors.bright}🚀 Step 5: Automation & Environment${colors.reset}`);
+    autoInstall = await ask(rl, `${colors.yellow}?${colors.reset} Automatically run 'npm install' now? (Y/n)`, 'Y');
+    autoGit = await ask(rl, `${colors.yellow}?${colors.reset} Initialize a git repository? (Y/n)`, 'Y');
   }
 
   rl.close();
@@ -157,7 +172,7 @@ ${colors.bright}Options:${colors.reset}
 
   // 1. Generate customized .github/workflows/ci-cd.yml
   const features = ['gitleaks', 'eslint', 'npm-audit', 'semgrep', 'unit', 'integration', 'playwright', 'owasp', 'trivy', 'google-chat'];
-  const workflowContent = generateGitHubWorkflow({ framework, database, features });
+  const workflowContent = generateGitHubWorkflow({ framework: backendFw, database, features });
   const workflowDir = path.join(targetPath, '.github', 'workflows');
   if (!fs.existsSync(workflowDir)) {
     fs.mkdirSync(workflowDir, { recursive: true });
@@ -166,16 +181,16 @@ ${colors.bright}Options:${colors.reset}
   console.log(`  ${colors.green}✔${colors.reset} Generated ${colors.bright}.github/workflows/ci-cd.yml${colors.reset}`);
 
   // 2. Generate customized Dockerfile
-  const dockerContent = generateDockerfile({ framework });
+  const dockerContent = generateDockerfile({ framework: backendFw });
   fs.writeFileSync(path.join(targetPath, 'Dockerfile'), dockerContent.trim() + '\n', 'utf-8');
-  console.log(`  ${colors.green}✔${colors.reset} Generated ${colors.bright}Dockerfile${colors.reset} (${framework} multi-stage)`);
+  console.log(`  ${colors.green}✔${colors.reset} Generated ${colors.bright}Dockerfile${colors.reset}`);
 
   // 3. Generate package.json for target project
   if (targetPath !== packageRoot) {
     const projectPackageJson = {
       name: path.basename(targetPath),
       version: '1.0.0',
-      description: 'Cloud-Native microservice bootstrapped with La Plateforme DevSecOps',
+      description: `Cloud-Native application (${backendFw} backend + ${frontendFw} frontend) with La Plateforme DevSecOps`,
       main: 'src/server.js',
       scripts: {
         start: 'node src/server.js',
@@ -248,13 +263,40 @@ test-results/
   fs.writeFileSync(path.join(targetPath, '.gitignore'), gitignoreContent, 'utf-8');
   console.log(`  ${colors.green}✔${colors.reset} Configured ${colors.bright}.gitignore${colors.reset}`);
 
-  console.log(`\n${colors.green}${colors.bright}🎉 Project successfully created at ${targetPath}!${colors.reset}`);
+  // 6. Automated NPM Install
+  if (autoInstall.toLowerCase().startsWith('y')) {
+    console.log(`\n${colors.cyan}📦 Installing dependencies via npm install in ${targetPath}...${colors.reset}`);
+    try {
+      spawnSync('npm', ['install'], { cwd: targetPath, stdio: 'inherit' });
+      console.log(`  ${colors.green}✔${colors.reset} Dependencies installed successfully.`);
+    } catch (err) {
+      console.warn(`  ${colors.yellow}⚠️ Failed to run npm install automatically:${colors.reset}`, err.message);
+    }
+  }
+
+  // 7. Automated Git Initialization
+  if (autoGit.toLowerCase().startsWith('y')) {
+    console.log(`\n${colors.cyan}🔧 Initializing git repository in ${targetPath}...${colors.reset}`);
+    try {
+      spawnSync('git', ['init'], { cwd: targetPath, stdio: 'inherit' });
+      spawnSync('git', ['add', '.'], { cwd: targetPath, stdio: 'inherit' });
+      spawnSync('git', ['commit', '-m', 'feat: initial commit with La Plateforme DevSecOps starter'], {
+        cwd: targetPath,
+        stdio: 'inherit',
+      });
+      console.log(`  ${colors.green}✔${colors.reset} Git repository initialized with initial commit.`);
+    } catch (err) {
+      console.warn(`  ${colors.yellow}⚠️ Git initialization skipped or failed:${colors.reset}`, err.message);
+    }
+  }
+
+  console.log(`\n${colors.green}${colors.bright}🎉 Project successfully created and initialized at ${targetPath}!${colors.reset}`);
   console.log(`
-${colors.bright}Next Steps:${colors.reset}
-  ${appName !== '.' ? `1. ${colors.cyan}cd ${appName}${colors.reset}\n  2. ` : '1. '}${colors.cyan}npm install${colors.reset}
-  ${appName !== '.' ? '3. ' : '2. '}${colors.cyan}npm run dev${colors.reset}
-  ${appName !== '.' ? '4. ' : '3. '}${colors.cyan}git init && git add . && git commit -m "initial commit"${colors.reset}
-  ${appName !== '.' ? '5. ' : '4. '}${colors.cyan}git push origin main${colors.reset} (triggers automated DevSecOps CI/CD!)
+${colors.bright}Get Started:${colors.reset}
+  ${appName !== '.' ? `1. ${colors.cyan}cd ${appName}${colors.reset}\n  2. ` : '1. '}${colors.cyan}npm run dev${colors.reset}              - Start local dev server (http://localhost:3000)
+  ${appName !== '.' ? '3. ' : '2. '}${colors.cyan}npm test${colors.reset}                 - Run Unit & Integration tests
+  ${appName !== '.' ? '4. ' : '3. '}${colors.cyan}npm run test:e2e${colors.reset}         - Run Playwright E2E browser tests
+  ${appName !== '.' ? '5. ' : '4. '}${colors.cyan}git push origin main${colors.reset}     - Trigger automated DevSecOps CI/CD!
 `);
 }
 
