@@ -171,45 +171,47 @@ ${colors.bright}Options:${colors.reset}
   console.log(`  ${colors.green}✔${colors.reset} Generated ${colors.bright}Dockerfile${colors.reset} (${framework} multi-stage)`);
 
   // 3. Generate package.json for target project
-  const projectPackageJson = {
-    name: path.basename(targetPath),
-    version: '1.0.0',
-    description: 'Cloud-Native microservice bootstrapped with La Plateforme DevSecOps',
-    main: 'src/server.js',
-    scripts: {
-      start: 'node src/server.js',
-      dev: 'node --watch src/server.js',
-      lint: 'eslint "src/**/*.js" "tests/**/*.js"',
-      "lint:fix": 'eslint "src/**/*.js" "tests/**/*.js" --fix',
-      test: 'npm run test:unit && npm run test:integration',
-      "test:unit": 'jest tests/unit --runInBand',
-      "test:integration": 'jest tests/integration --runInBand',
-      "test:e2e": 'playwright test',
-      "scan:secrets": 'gitleaks detect --verbose',
-      "scan:sast": 'semgrep scan --config="p/owasp-top-ten" src',
-    },
-    dependencies: {
-      cors: '^2.8.5',
-      dotenv: '^16.4.5',
-      express: '^4.19.2',
-      "express-rate-limit": '^7.2.0',
-      helmet: '^7.1.0',
-    },
-    devDependencies: {
-      "@playwright/test": '^1.44.0',
-      eslint: '^8.57.0',
-      jest: '^29.7.0',
-      prettier: '^3.2.5',
-      supertest: '^7.0.0',
-    },
-  };
+  if (targetPath !== packageRoot) {
+    const projectPackageJson = {
+      name: path.basename(targetPath),
+      version: '1.0.0',
+      description: 'Cloud-Native microservice bootstrapped with La Plateforme DevSecOps',
+      main: 'src/server.js',
+      scripts: {
+        start: 'node src/server.js',
+        dev: 'node --watch src/server.js',
+        lint: 'eslint "src/**/*.js" "tests/**/*.js"',
+        'lint:fix': 'eslint "src/**/*.js" "tests/**/*.js" --fix',
+        test: 'npm run test:unit && npm run test:integration',
+        'test:unit': 'jest tests/unit --runInBand',
+        'test:integration': 'jest tests/integration --runInBand',
+        'test:e2e': 'playwright test',
+        'scan:secrets': 'gitleaks detect --verbose',
+        'scan:sast': 'semgrep scan --config="p/owasp-top-ten" src',
+      },
+      dependencies: {
+        cors: '^2.8.5',
+        dotenv: '^16.4.5',
+        express: '^4.19.2',
+        'express-rate-limit': '^7.2.0',
+        helmet: '^7.1.0',
+      },
+      devDependencies: {
+        '@playwright/test': '^1.44.0',
+        eslint: '^8.57.0',
+        jest: '^29.7.0',
+        prettier: '^3.2.5',
+        supertest: '^7.0.0',
+      },
+    };
 
-  fs.writeFileSync(
-    path.join(targetPath, 'package.json'),
-    JSON.stringify(projectPackageJson, null, 2) + '\n',
-    'utf-8'
-  );
-  console.log(`  ${colors.green}✔${colors.reset} Generated ${colors.bright}package.json${colors.reset}`);
+    fs.writeFileSync(
+      path.join(targetPath, 'package.json'),
+      JSON.stringify(projectPackageJson, null, 2) + '\n',
+      'utf-8'
+    );
+    console.log(`  ${colors.green}✔${colors.reset} Generated ${colors.bright}package.json${colors.reset}`);
+  }
 
   // 4. Generate .env.example
   const envContent = `# Application Environment Configuration
