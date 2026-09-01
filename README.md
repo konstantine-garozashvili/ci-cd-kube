@@ -97,6 +97,17 @@ install from. Both Dockerfiles are used as `docker build -f backend/Dockerfile .
 then runs `npm prune --omit=dev`. Installing with `--omit=dev` up front fails
 before code generation can happen.
 
+**Prisma needs `openssl` on Alpine.** Without it Prisma detects no platform at
+generate time and emits an `openssl-1.1.x` query engine, which then fails to
+load against Alpine's OpenSSL 3 (`Error loading shared library libssl.so.1.1`).
+The image installs it explicitly. This one only reproduces inside a container.
+
+**The Next.js API proxy lives in `middleware.ts`, not in `next.config.mjs`
+rewrites.** Rewrite destinations are serialised into the build output, so a
+containerised app would keep proxying to whatever URL was set at build time and
+ignore `API_PROXY_TARGET` at runtime. Middleware is evaluated per request, so
+one image works in dev, in compose and in production.
+
 **Frontends proxy the API on their own origin.** Vite proxies in development,
 nginx proxies in the container, and Next.js rewrites. The browser never makes a
 cross-origin request, so there is no CORS to misconfigure — and the E2E API
@@ -126,8 +137,16 @@ asserts statically that:
 - `.gitignore` does not exclude `package-lock.json`,
 - `docker-compose.yml` carries no obsolete `version` key.
 
-CI runs the full matrix on every pull request, plus a job that builds the
-generated container images and boots the backend image to probe its endpoints.
+CI runs the full matrix on every pull request, plus a `docker-smoke` matrix
+that covers all four Dockerfile shapes the generator emits — workspace backend,
+compiled backend, static frontend behind nginx, Next.js standalone, and the
+single-package root Dockerfile. Each leg brings the stack up against a real
+database, probes the endpoints through the frontend's proxy, and runs the
+generated E2E suite against the running containers.
+
+Every shape in that matrix has been built and booted locally: images run as
+non-root, report `healthy` to Docker, serve `/ready` as `UP` against a live
+database, and shut down cleanly on `SIGTERM` with exit code 0.
 
 ## Repository layout
 
