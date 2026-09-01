@@ -5,82 +5,76 @@ This document specifies the technical architecture and workflow logic of the **C
 
 ---
 
-## 📊 UML Activity Diagram
+## 📊 UML Activity Diagram (Landscape Flow)
 
-The diagram below maps all actors, swimlanes, execution steps, conditional branches (Fail-Fast testing, Dev vs Prod tagging), registry publishing, cluster deployment, and notification webhooks.
+The diagram below presents the end-to-end execution workflow structured in a horizontal landscape sequence from initial Git trigger to Kubernetes rollout and Google Chat alerting.
 
 ```mermaid
-flowchart TD
-    %% Styling Classes
-    classDef startEnd fill:#1e293b,stroke:#0ea5e9,stroke-width:3px,color:#f8fafc,font-weight:bold;
-    classDef action fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0;
+flowchart LR
+    %% Global Styling Classes
+    classDef startEnd fill:#1e293b,stroke:#0ea5e9,stroke-width:2.5px,color:#f8fafc,font-weight:bold;
+    classDef action fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#e2e8f0;
     classDef decision fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#ffffff,font-weight:bold;
     classDef fail fill:#450a0a,stroke:#ef4444,stroke-width:2px,color:#fee2e2;
     classDef success fill:#052e16,stroke:#22c55e,stroke-width:2px,color:#dcfce7;
-    classDef branch fill:#172554,stroke:#60a5fa,stroke-width:2px,color:#dbeafe;
+    classDef branch fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#dbeafe;
 
-    %% Initial Trigger
-    StartNode((● Start)):::startEnd --> TriggerNode[Developer pushes commit to 'main' OR creates Git tag 'v*']:::action
-    
-    TriggerNode --> GHATrigger[GitHub Actions Runner Triggered]:::action
-    
-    %% Stage 1: Checkout & Test
-    subgraph STAGE_1 ["Stage 1: Checkout & Automated Testing (CI)"]
-        GHATrigger --> Checkout[1.1 Checkout Code via actions/checkout@v4]:::action
-        Checkout --> SetupEnv[1.2 Setup Node.js / Runtime & Restore Dependencies Cache]:::action
-        SetupEnv --> InstallDeps[1.3 Install Dependencies via npm ci]:::action
-        InstallDeps --> RunTests[1.4 Execute Automated Test Suite npm test]:::action
-        RunTests --> TestDecision{Tests Passed?}:::decision
+    %% Entry Node
+    StartNode((● Start)):::startEnd --> Trigger[Event: Git Push 'main'<br/>OR Tag 'v*']:::action
+    Trigger --> GHATrigger[GitHub Actions<br/>Runner Triggered]:::action
+
+    %% Stage 1: CI & Quality Gate
+    subgraph STAGE_1 ["Stage 1: CI & Quality Gate"]
+        direction TB
+        GHATrigger --> Checkout[1.1 Checkout Code<br/>actions/checkout@v4]:::action
+        Checkout --> SetupEnv[1.2 Setup Runtime &<br/>Cache Dependencies]:::action
+        SetupEnv --> InstallDeps[1.3 Install Dependencies<br/>npm ci]:::action
+        InstallDeps --> RunTests[1.4 Execute Test Suite<br/>npm test]:::action
+        RunTests --> TestDecision{Tests<br/>Passed?}:::decision
     end
-
-    %% Test Decision Branches
-    TestDecision -- ❌ No (Fail-Fast) --> PrepareTestFail[Collect Test Error Logs & Failure Stack Trace]:::fail
-    PrepareTestFail --> SendFailNotif[Send Google Chat Failure Card 🔴]:::fail
-    SendFailNotif --> EndFail((● Pipeline Terminated)):::fail
-
-    TestDecision -- ✅ Yes --> Stage2Entry[Proceed to Build Stage]:::action
 
     %% Stage 2 & 3: Containerization & Registry Push
     subgraph STAGE_2_3 ["Stage 2 & 3: Container Build & GHCR Push"]
-        Stage2Entry --> CheckTriggerType{Trigger Type?}:::decision
-        
-        CheckTriggerType -- "Push on 'main'" --> DevTagging["Strategy: Development<br/>Tags: dev-&lt;sha&gt;, dev-latest<br/>Target Env: Development"]:::branch
-        CheckTriggerType -- "Git Tag 'v*'" --> ProdTagging["Strategy: Production<br/>Tags: &lt;vX.Y.Z&gt;, latest<br/>Target Env: Production"]:::branch
-        
-        DevTagging --> SetupBuildx[Setup Docker Buildx & Cache Layer]:::action
+        direction TB
+        Stage2Entry[Enter Build Stage]:::action --> CheckTriggerType{Trigger<br/>Type?}:::decision
+        CheckTriggerType -- "Push 'main'" --> DevTagging["Dev Strategy<br/>• dev-&lt;sha&gt;<br/>• dev-latest"]:::branch
+        CheckTriggerType -- "Tag 'v*'" --> ProdTagging["Prod Strategy<br/>• &lt;vX.Y.Z&gt;<br/>• latest"]:::branch
+        DevTagging --> SetupBuildx[Setup Docker Buildx & Cache]:::action
         ProdTagging --> SetupBuildx
-        
-        SetupBuildx --> AuthGHCR[Authenticate with GHCR via GITHUB_TOKEN]:::action
-        AuthGHCR --> DockerBuildPush[Build Multi-Stage Docker Image & Push to GHCR]:::action
-        DockerBuildPush --> BuildDecision{Build & Push Succeeded?}:::decision
+        SetupBuildx --> AuthGHCR[Auth GHCR via GITHUB_TOKEN]:::action
+        AuthGHCR --> DockerBuildPush[Build Multi-Stage Image & Push]:::action
+        DockerBuildPush --> BuildDecision{Build & Push<br/>Succeeded?}:::decision
     end
 
-    %% Build Decision Branches
-    BuildDecision -- ❌ No --> PrepareBuildFail[Collect Docker Build & Push Error Logs]:::fail
-    PrepareBuildFail --> SendFailNotif
-
-    BuildDecision -- ✅ Yes --> Stage4Entry[Proceed to Deployment Stage]:::action
-
-    %% Stage 4: Kubernetes Continuous Deployment
+    %% Stage 4: Kubernetes CD
     subgraph STAGE_4 ["Stage 4: Kubernetes Deployment (CD)"]
-        Stage4Entry --> AuthK8s[Authenticate with Kubernetes Cluster via KUBECONFIG]:::action
-        AuthK8s --> ApplyManifests[Apply K8s Manifests: Deployment, Service, Ingress, Config]:::action
-        ApplyManifests --> SetImage[Update Deployment Image Tag to Newly Pushed Image]:::action
-        SetImage --> RolloutWait[Execute kubectl rollout status --timeout=120s]:::action
-        RolloutWait --> RolloutDecision{Rollout Healthy?}:::decision
+        direction TB
+        Stage4Entry[Enter Deploy Stage]:::action --> AuthK8s[Authenticate Cluster<br/>via KUBECONFIG]:::action
+        AuthK8s --> ApplyManifests[Apply Manifests<br/>Deploy / Svc / Ingress]:::action
+        ApplyManifests --> SetImage[Update Deployment Image Tag]:::action
+        SetImage --> RolloutWait[Wait for Rollout Status<br/>timeout: 120s]:::action
+        RolloutWait --> RolloutDecision{Rollout<br/>Healthy?}:::decision
     end
 
-    %% Rollout Decision Branches
-    RolloutDecision -- ❌ No (Timeout/CrashLoop) --> PrepareK8sFail[Fetch Failed Pod Logs & describe deployment]:::fail
-    PrepareK8sFail --> SendFailNotif
+    %% Stage 5: Notification & Completion
+    subgraph STAGE_5 ["Stage 5: Notification & Terminal States"]
+        direction TB
+        PrepareFail[Extract Error Logs & Failure Context]:::fail --> SendFailNotif[Send Google Chat Failure Card 🔴]:::fail
+        SendFailNotif --> EndFail((● Terminated)):::fail
 
-    RolloutDecision -- ✅ Yes --> PrepareSuccess[Generate Pipeline Summary: Commit, Author, Image Digest, URL]:::success
-    
-    %% Stage 5: Notification & Final State
-    subgraph STAGE_5 ["Stage 5: Notification & Completion"]
-        PrepareSuccess --> SendSuccessNotif[Send Google Chat Success Card 🟢]:::success
-        SendSuccessNotif --> EndSuccess((◎ Pipeline Finished Successfully)):::startEnd
+        PrepareSuccess[Compile Metrics, Digest & URL]:::success --> SendSuccessNotif[Send Google Chat Success Card 🟢]:::success
+        SendSuccessNotif --> EndSuccess((◎ Success)):::startEnd
     end
+
+    %% Flow Connections & Decisions
+    TestDecision -- "✅ Yes" --> Stage2Entry
+    TestDecision -- "❌ No (Fail-Fast)" --> PrepareFail
+
+    BuildDecision -- "✅ Yes" --> Stage4Entry
+    BuildDecision -- "❌ No" --> PrepareFail
+
+    RolloutDecision -- "✅ Yes" --> PrepareSuccess
+    RolloutDecision -- "❌ No" --> PrepareFail
 ```
 
 ---
@@ -96,28 +90,6 @@ flowchart TD
 ---
 
 ### 2. Stage-by-Stage Breakdown
-
-```mermaid
-gantt
-    title CI/CD Pipeline Execution Timeline
-    dateFormat  X
-    axisFormat %s s
-    section Stage 1: CI & Quality Gate
-    Checkout & Cache Restore : 0, 5
-    Install Dependencies      : 5, 12
-    Execute Tests (Fail-Fast) : 12, 22
-    section Stage 2: Containerization
-    Docker Buildx Setup       : 22, 25
-    GHCR Login               : 25, 27
-    Multi-stage Image Build  : 27, 45
-    GHCR Image Push          : 45, 55
-    section Stage 3: Kubernetes CD
-    Cluster Auth             : 55, 58
-    Manifest Apply / Update  : 58, 63
-    Rollout Status Check     : 63, 75
-    section Stage 4: Alerting
-    Google Chat Webhook Card : 75, 78
-```
 
 #### **Stage 1: Checkout & Automated Testing (CI Quality Gate)**
 - **Fail-Fast Mechanism**: If any unit/integration test fails, execution halts immediately with exit code `1`.
