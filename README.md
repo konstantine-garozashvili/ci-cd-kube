@@ -1,6 +1,7 @@
 # 🚀 CI/CD & DevSecOps Pipeline (`ci-cd-kube`)
 
 ![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=github-actions&logoColor=white)
+![Security-OWASP](https://img.shields.io/badge/Security-OWASP_ZAP_DAST-red?logo=owasp&logoColor=white)
 ![Security-Gitleaks](https://img.shields.io/badge/Security-Gitleaks-critical?logo=git&logoColor=white)
 ![Tests-Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?logo=playwright&logoColor=white)
 ![Security-Trivy](https://img.shields.io/badge/Security-Trivy_CVE_Scan-blue?logo=aquasecurity&logoColor=white)
@@ -8,7 +9,7 @@
 ![Registry](https://img.shields.io/badge/Registry-GHCR-181717?logo=github&logoColor=white)
 ![Alerting](https://img.shields.io/badge/Alerts-Google_Chat-00AC47?logo=googlechat&logoColor=white)
 
-Enterprise Continuous Integration (CI) and Secure Containerization pipeline enforcing **Shift-Left DevSecOps quality gates** (actions/checkout@v4, Gitleaks, actions/setup-node@v4, npm ci, ESLint, npm audit, Semgrep SAST, **Unit Tests**, **Integration Tests**, **Playwright E2E Tests**, Hadolint, Trivy CVE scan), versioned GHCR image publishing, and real-time Google Chat alerting.
+Enterprise Continuous Integration (CI) and Secure Containerization pipeline enforcing **OWASP-Hardened DevSecOps quality gates** (actions/checkout@v4, Gitleaks, actions/setup-node@v4, npm ci, ESLint, npm audit, Semgrep SAST OWASP Top-10, **Unit Tests**, **Integration Tests**, **Playwright E2E Tests**, **OWASP ZAP DAST scan**, Hadolint, Trivy CVE scan), versioned GHCR image publishing, and real-time Google Chat alerting.
 
 ---
 
@@ -18,24 +19,25 @@ For a complete breakdown and printable presentation view:
 - 📖 **Architecture Document**: [docs/architecture/pipeline_architecture.md](docs/architecture/pipeline_architecture.md)
 - 🖨️ **Printable / PDF Exportable HTML Diagram**: [docs/architecture/pipeline_diagram.html](docs/architecture/pipeline_diagram.html)
 
-### 📊 Master Pipeline Workflow (Chronological Sequence)
+### 📊 Master Pipeline Workflow (OWASP Hardened)
 
 ```mermaid
 flowchart TD
     StartNode(["● Start: Git Push or Tag"]) --> GHATrigger["Trigger GitHub Actions Runner"]
 
-    subgraph PHASE1 ["Phase 1: Environment Setup, Security & Full Testing Gate (CI)"]
+    subgraph PHASE1 ["Phase 1: Environment Setup, Shift-Left Security & Testing Gate (CI)"]
         GHATrigger --> Checkout["1.1 📥 Checkout Code (actions/checkout@v4, fetch-depth: 0)"]
         Checkout --> SecretGate["1.2 🔑 Gitleaks: Scan Commits for Exposed Secrets & Keys"]
         SecretGate --> SetupNode["1.3 ⚙️ Setup Node.js & Cache (actions/setup-node@v4)"]
         SetupNode --> InstallDeps["1.4 📦 Install Clean Dependencies (npm ci)"]
         InstallDeps --> Lint["1.5 🧹 ESLint: Code Standards & Formatting"]
         Lint --> DepAudit["1.6 🛡️ SCA: Dependency Vulnerability Audit (npm audit)"]
-        DepAudit --> SAST["1.7 🔍 SAST: Static Code Security Analysis (Semgrep)"]
+        DepAudit --> SAST["1.7 🔍 SAST: Semgrep OWASP Top-10 Security Scan"]
         SAST --> UnitTests["1.8 🧪 Unit Tests: Pure Functions & Logic (Jest)"]
         UnitTests --> IntegrationTests["1.9 🔄 Integration Tests: HTTP Routes & APIs (Supertest)"]
         IntegrationTests --> PlaywrightE2E["1.10 🎭 Playwright E2E: Headless Browser Scenarios"]
-        PlaywrightE2E --> Phase1Dec{"All CI Steps Passed?"}
+        PlaywrightE2E --> OWASPZAP["1.11 ⚡ OWASP ZAP DAST: Live Vulnerability & Header Scan (zaproxy)"]
+        OWASPZAP --> Phase1Dec{"All CI & OWASP Gates Passed?"}
     end
 
     subgraph PHASE2 ["Phase 2: Secure Docker Build & GHCR Publishing"]
@@ -52,16 +54,16 @@ flowchart TD
     end
 
     subgraph PHASE3 ["Phase 3: SOAR Monitoring & Google Chat Alerting"]
-        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Exact Offending Step: Gitleaks / Lint / Unit / Integ / Playwright / Hadolint / Trivy<br/>• Failure Logs & Traceback<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
-        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• All 10 CI Gates & Tests: 100% Passed<br/>• Image Published to GHCR with Verified Tags<br/>• Commit SHA, Author & Run Link"] --> TermSucc(["◎ Pipeline Succeeded"])
+        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Exact Offending Step: Gitleaks / Lint / OWASP / Unit / Integ / Playwright / Trivy<br/>• Failure Logs & Traceback<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
+        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• All 11 CI & OWASP Gates: 100% Passed<br/>• Image Published to GHCR with Verified Tags<br/>• Commit SHA, Author & Run Link"] --> TermSucc(["◎ Pipeline Succeeded"])
     end
 
     %% Success Transitions
-    Phase1Dec -->|"Yes (All 10 CI Gates Clean)"| Hadolint
+    Phase1Dec -->|"Yes (All 11 CI Gates Clean)"| Hadolint
     Phase2Dec -->|"Yes (Zero High CVEs & Pushed)"| SuccAlert
 
     %% Fail-Fast Transitions (Immediate Alert & Terminate)
-    Phase1Dec -->|"No (Any Security, Lint, or Test Failure)"| FailAlert
+    Phase1Dec -->|"No (Any Security, OWASP, Lint, or Test Failure)"| FailAlert
     Phase2Dec -->|"No (Dockerfile Lint, Image CVE, or Push Failure)"| FailAlert
 ```
 
