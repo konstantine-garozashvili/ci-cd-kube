@@ -5,12 +5,12 @@ test.describe('Playwright E2E: Home Landing Page Scenarios', () => {
     await page.goto('/');
 
     // Verify Title
-    await expect(page).toHaveTitle(/DevSecOps Golden Starter/i);
+    await expect(page).toHaveTitle(/La Plateforme/i);
 
     // Verify App Header
     const heading = page.locator('#app-title');
     await expect(heading).toBeVisible();
-    await expect(heading).toContainText('DevSecOps Golden Starter');
+    await expect(heading).toContainText('La Plateforme Starter');
 
     // Verify System Status Badge
     const statusBadge = page.locator('#status-badge');
@@ -20,14 +20,21 @@ test.describe('Playwright E2E: Home Landing Page Scenarios', () => {
     // Verify Health Status Tile
     const healthTile = page.locator('#health-status');
     await expect(healthTile).toBeVisible();
-    await expect(healthTile).toContainText('UP (HTTP 200)');
+    await expect(healthTile).toContainText('UP (200 OK)');
   });
 
-  test('should navigate to API info endpoint from button', async ({ page }) => {
+  test('should test interactive route explorer buttons', async ({ page }) => {
     await page.goto('/');
+    
+    // Check buttons exist
     const btnInfo = page.locator('#btn-info');
     await expect(btnInfo).toBeVisible();
-    await expect(btnInfo).toHaveAttribute('href', '/api/info');
+    await expect(btnInfo).toContainText('GET /api/info');
+
+    // Click GET /api/info and verify JSON output updates
+    await btnInfo.click();
+    const output = page.locator('#response-output');
+    await expect(output).toContainText('HTTP 200 OK');
   });
 
   test('should verify health endpoint responds with JSON UP status directly in browser context', async ({ request }) => {
