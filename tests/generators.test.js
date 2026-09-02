@@ -210,14 +210,14 @@ describe('database credentials never appear in committed files', () => {
     });
     const token = 'unit-test-placeholder';
     expect(generateBackendEnv(mongo, { dbPassword: token })).toContain(
-      `app:${token}@localhost:27017/app_db?authSource=admin`
+      `app:${token}@localhost:57017/app_db?authSource=admin`
     );
   });
 
   it('a generated password reaches the backend DATABASE_URL', () => {
     const token = 'unit-test-placeholder';
     expect(generateBackendEnv(withDb, { dbPassword: token })).toContain(
-      `${dbUser}:${token}@localhost:5432/app_db`
+      `${dbUser}:${token}@localhost:55432/app_db`
     );
   });
 });
@@ -248,5 +248,30 @@ describe('landing page reports measured state, not a fixed string', () => {
 
   it('the shared brand asset is present to copy', () => {
     expect(fs.existsSync('templates/shared/brand/logo.png')).toBe(true);
+  });
+});
+
+/**
+ * A second PostgreSQL on the machine — Laragon, Postgres.app, a system service
+ * — can bind the same port, and on Windows both listeners can coexist silently
+ * so the app authenticates against the wrong server. Publishing on a distinct
+ * host port removes the collision entirely.
+ */
+describe('database containers publish on non-default host ports', () => {
+  it.each([
+    ['postgres', '55432', '5432'],
+    ['mongodb', '57017', '27017'],
+  ])('%s maps host %s to container %s', (database, hostPort, containerPort) => {
+    const options = buildOptions({
+      targetPath: '/tmp/demo',
+      name: 'demo',
+      backend: 'express',
+      frontend: 'react',
+      database,
+    });
+
+    const compose = generateDockerCompose(options);
+    expect(compose).toContain(`:-${hostPort}}:${containerPort}`);
+    expect(generateBackendEnv(options, { dbPassword: 'pw' })).toContain(`localhost:${hostPort}`);
   });
 });
