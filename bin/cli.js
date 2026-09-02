@@ -13,6 +13,7 @@ const {
   scaffold,
   initialiseGit,
   installDependencies,
+  fallBackToPinnedVersions,
   normaliseFormatting,
   createInitialCommit,
 } = require('../lib/scaffold');
@@ -34,8 +35,8 @@ ${colors.bright}Options${colors.reset}
       --no-install      Skip npm install
       --no-git          Skip git init and the initial commit
       --force           Scaffold into a non-empty directory without asking
-      --latest          Resolve current dependency versions from npm instead of
-                        the tested baseline (see "Dependency versions" in README)
+      --pinned          Use the exact dependency versions this scaffolder was
+                        tested against, instead of resolving current releases
   -v, --version         Print the version
   -h, --help            Show this message
 
@@ -53,7 +54,7 @@ function parseArgs(argv) {
     install: true,
     git: true,
     force: false,
-    latest: false,
+    pinned: false,
     help: false,
     version: false,
   };
@@ -73,8 +74,11 @@ function parseArgs(argv) {
       flags.git = false;
     } else if (arg === '--force') {
       flags.force = true;
+    } else if (arg === '--pinned') {
+      flags.pinned = true;
     } else if (arg === '--latest') {
-      flags.latest = true;
+      // Kept as a no-op: resolving current releases is the default now.
+      flags.pinned = false;
     } else if (arg.startsWith('--backend=')) {
       choices.backend = arg.slice('--backend='.length);
     } else if (arg.startsWith('--frontend=')) {
@@ -182,16 +186,33 @@ async function main() {
 
   const options = buildOptions({ targetPath, name: answers.name, backend, frontend, database });
 
-  if (flags.latest) {
-    console.log(`\n${colors.cyan}🔎 Resolving current versions from npm…${colors.reset}`);
+  if (!flags.pinned) {
+    console.log(
+      `\n${colors.cyan}🔎 Resolving current stable versions (Node LTS + npm)…${colors.reset}`
+    );
   }
 
-  const resolved = await resolveVersions({ latest: flags.latest });
+  const resolved = await resolveVersions({ latest: !flags.pinned });
   options.versions = resolved.versions;
+  options.node = resolved.node;
+  // Kept so a fallback can rewrite the manifests with the tested set.
+  options.pinnedFallback = await resolveVersions({ latest: false });
 
-  if (flags.latest) {
+  if (!flags.pinned) {
+    console.log(
+      success(
+        resolved.node.resolved
+          ? `Node ${resolved.node.major} LTS (engines ${resolved.node.engineRange}).`
+          : `Node ${resolved.node.major} (could not reach nodejs.org; using the tested version).`
+      )
+    );
+  }
+
+  if (!flags.pinned) {
     if (resolved.updated.length) {
-      console.log(success(`Updated ${resolved.updated.length} package(s) past the tested baseline.`));
+      console.log(
+        success(`Updated ${resolved.updated.length} package(s) past the tested baseline.`)
+      );
       resolved.updated.forEach((line) => console.log(`      ${colors.dim}${line}${colors.reset}`));
     } else {
       console.log(success('Baseline already matches the current releases.'));
@@ -199,17 +220,23 @@ async function main() {
 
     if (resolved.held.length) {
       console.log(
-        warning(`Held ${resolved.held.length} package(s) at the tested version — a newer release is known to break generated projects:`)
+        warning(
+          `Held ${resolved.held.length} package(s) at the tested version — a newer release is known to break generated projects:`
+        )
       );
       resolved.held.forEach((line) => console.log(`      ${colors.dim}${line}${colors.reset}`));
     }
 
     if (resolved.failed.length) {
-      console.log(warning(`Could not reach npm for ${resolved.failed.length} package(s); those kept the tested version.`));
+      console.log(
+        warning(
+          `Could not reach npm for ${resolved.failed.length} package(s); those kept the tested version.`
+        )
+      );
     }
 
     console.log(
-      `  ${colors.dim}These versions are newer than what this scaffolder last verified. If something fails, re-run without --latest.${colors.reset}`
+      `  ${colors.dim}Anything newer than the tested baseline is used as-is; if the install fails, the tested set is applied automatically.${colors.reset}`
     );
   }
 
@@ -247,7 +274,17 @@ async function main() {
   const wantsInstall = interactive ? answers.install : flags.install;
   if (wantsInstall) {
     console.log(`\n${colors.cyan}📦 Installing dependencies…${colors.reset}\n`);
-    if (installDependencies(targetPath, log)) {
+    let installed = installDependencies(targetPath, log, {
+      adviseManualRetry: flags.pinned,
+    });
+
+    // Current releases are used as-is; if one of them broke the install, apply
+    // the tested set rather than leaving a project that cannot start.
+    if (!installed && !flags.pinned) {
+      installed = fallBackToPinnedVersions(options, log);
+    }
+
+    if (installed) {
       console.log(success('Dependencies installed.'));
       if (normaliseFormatting(targetPath, log)) {
         console.log(success('Formatted the project with Prettier.'));

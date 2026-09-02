@@ -36,9 +36,7 @@ async function main() {
     `${colors.bright}Dependency drift${colors.reset} ${colors.dim}(${names.length} packages)${colors.reset}\n`
   );
 
-  const results = await Promise.all(
-    names.map(async (name) => [name, await fetchLatest(name)])
-  );
+  const results = await Promise.all(names.map(async (name) => [name, await fetchLatest(name)]));
 
   const current = [];
   const behind = [];
@@ -78,7 +76,9 @@ async function main() {
   if (behind.length) {
     console.log(`${colors.yellow}${colors.bright}Behind${colors.reset}`);
     for (const entry of behind) {
-      const marker = entry.majorJump ? `${colors.red}major${colors.reset}` : `${colors.dim}minor/patch${colors.reset}`;
+      const marker = entry.majorJump
+        ? `${colors.red}major${colors.reset}`
+        : `${colors.dim}minor/patch${colors.reset}`;
       console.log(`  ${entry.name.padEnd(30)} ${entry.pinned} → ${entry.latest}  (${marker})`);
     }
     console.log();
@@ -89,7 +89,9 @@ async function main() {
       `${colors.cyan}${colors.bright}Held back by a ceiling${colors.reset} ${colors.dim}(re-test, then raise the ceiling in lib/versions.js)${colors.reset}`
     );
     for (const entry of liftable) {
-      console.log(`  ${colors.bright}${entry.name}${colors.reset} ${entry.pinned} → ${entry.latest}`);
+      console.log(
+        `  ${colors.bright}${entry.name}${colors.reset} ${entry.pinned} → ${entry.latest}`
+      );
       console.log(`    ${colors.dim}${entry.reason}${colors.reset}`);
     }
     console.log();

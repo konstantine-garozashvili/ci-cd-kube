@@ -208,7 +208,9 @@ function runCase(config, workDir, options) {
       config.id,
       '--defaults',
       '--no-git',
-      ...(options.latest ? ['--latest'] : []),
+      // Default to --pinned so a normal run is deterministic and exercises the
+      // baseline the automatic fallback depends on. --latest is the canary mode.
+      ...(options.latest ? [] : ['--pinned']),
       `--backend=${config.backend}`,
       `--frontend=${config.frontend}`,
       `--database=${config.database}`,
@@ -286,8 +288,9 @@ function main() {
     quick: argv.includes('--quick'),
     keep: argv.includes('--keep'),
     e2e: argv.includes('--e2e'),
-    // Scaffolds against the current npm releases instead of the tested
-    // baseline. The weekly canary uses this to find upstream breakage early.
+    // Scaffolds against current npm releases instead of the tested baseline.
+    // The weekly canary uses this to find upstream breakage early; a plain run
+    // stays pinned so results are reproducible.
     latest: argv.includes('--latest'),
     only: (argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length),
   };

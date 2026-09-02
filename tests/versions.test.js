@@ -1,4 +1,10 @@
-const { BASELINE, CONSTRAINED, majorOf, isPrerelease, resolveVersions } = require('../lib/versions');
+const {
+  BASELINE,
+  CONSTRAINED,
+  majorOf,
+  isPrerelease,
+  resolveVersions,
+} = require('../lib/versions');
 const { buildOptions } = require('../lib/options');
 const {
   generateRootPackageJson,
@@ -6,6 +12,9 @@ const {
   generateFrontendPackageJson,
 } = require('../lib/generators/manifest');
 const { BACKENDS, FRONTENDS, DATABASES } = require('../lib/constants');
+const { generateBackendDockerfile } = require('../lib/generators/docker');
+const { generateGitHubWorkflow } = require('../lib/generators/ci');
+const { generateReadme } = require('../lib/generators/docs');
 
 describe('version helpers', () => {
   it.each([
@@ -59,10 +68,48 @@ describe('BASELINE', () => {
 });
 
 describe('resolveVersions', () => {
-  it('returns the baseline untouched when latest is not requested', async () => {
+  it('returns the baseline untouched when pinned', async () => {
     const result = await resolveVersions({ latest: false });
     expect(result.versions).toEqual(BASELINE);
     expect(result.updated).toEqual([]);
+  });
+
+  it('reports a Node version and engine floor even when pinned', async () => {
+    const { node } = await resolveVersions({ latest: false });
+    expect(typeof node.major).toBe('number');
+    expect(node.major).toBeGreaterThanOrEqual(20);
+    expect(node.engineRange).toMatch(/^>=\d+\.0\.0$/);
+    expect(node.resolved).toBe(false);
+  });
+});
+
+describe('a resolved Node version reaches every generator', () => {
+  const options = {
+    ...buildOptions({
+      targetPath: '/tmp/demo',
+      name: 'demo',
+      backend: 'express',
+      frontend: 'react',
+      database: 'postgres',
+    }),
+    // Stands in for a future LTS, to prove nothing is hardcoded to today's.
+    node: { major: 30, engineRange: '>=28.0.0', resolved: true },
+  };
+
+  it('sets the Docker base image', () => {
+    expect(generateBackendDockerfile(options)).toContain('FROM node:30-alpine');
+  });
+
+  it('sets the CI matrix version', () => {
+    expect(generateGitHubWorkflow(options)).toContain("NODE_VERSION: '30'");
+  });
+
+  it('sets the engines floor', () => {
+    expect(generateRootPackageJson(options).engines.node).toBe('>=28.0.0');
+  });
+
+  it('names it in the generated README', () => {
+    expect(generateReadme(options)).toContain('Node.js 30');
   });
 });
 
@@ -72,9 +119,7 @@ describe('resolveVersions', () => {
  */
 describe('generated manifests source every version from the map', () => {
   const combinations = BACKENDS.filter((b) => b !== 'none').flatMap((backend) =>
-    FRONTENDS.flatMap((frontend) =>
-      DATABASES.map((database) => ({ backend, frontend, database }))
-    )
+    FRONTENDS.flatMap((frontend) => DATABASES.map((database) => ({ backend, frontend, database })))
   );
 
   const sentinel = Object.fromEntries(

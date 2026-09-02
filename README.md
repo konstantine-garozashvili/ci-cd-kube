@@ -84,23 +84,29 @@ for the full pipeline reference.
 
 ## Dependency versions
 
-Every version a generated project uses lives in one map: `lib/versions.js`.
+**Versions are resolved when someone scaffolds, not when this package is
+released.** Run it in three years and you get whatever is current then — no
+maintenance needed here, and no waiting for a release of this tool.
 
-**`BASELINE`** is the set this scaffolder has actually built, linted, tested and
-run in a container. It is what you get by default, so a fresh scaffold is
-reproducible and known-good.
+Two things are resolved at init time:
 
-**`--latest`** resolves the current `latest` dist-tag from npm at scaffold time
-instead, so a project started two years from now is current without waiting for
-a release of this package:
+- **Node.js** — the current Active LTS, from the official release index. It sets
+  `.nvmrc`, the Docker base image, the CI matrix and the `engines` floor (the
+  previous LTS), so all four can never drift apart.
+- **Every framework and tool** — React, Vue, Next.js, NestJS, Express, Hono,
+  Prisma, Vite, ESLint and the rest, from their `latest` dist-tag on npm.
 
 ```bash
-npx laplateforme-starter my-app --latest
+npx laplateforme-starter my-app            # current stable, the default
+npx laplateforme-starter my-app --pinned   # the exact set this tool was tested against
 ```
 
-**`CONSTRAINED`** is the part that makes `--latest` safe. Some packages must not
-follow latest, because the newest release is known to break a generated project.
-Each ceiling carries its reason:
+### Why that is safe
+
+"Always latest" breaks projects if you do it naively. Four guards make it work:
+
+**Ceilings.** Some majors are known to break a generated project, and are held
+back with the reason recorded in `lib/versions.js`:
 
 | Package      | Held at | Why                                                                                                                                          |
 | ------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -109,27 +115,35 @@ Each ceiling carries its reason:
 | `@nestjs/*`  | 11.x    | NestJS 12 is ESM-only, which needs the template converted to ESM and a Jest ESM setup.                                                       |
 | `typescript` | 6.0.x   | Three peer ranges must intersect: `@nestjs/schematics` needs `>=6`, `ts-jest` needs `<7`, `typescript-eslint` needs `<6.1`.                  |
 
-`--latest` reports exactly what it updated and what it held back, and it also
-skips prereleases — npm's `latest` tag is not always a stable release. While
-writing this, Prisma had `8.0.0-rc.12` sitting on `latest`.
+**No prereleases.** npm's `latest` tag is not always a stable release — while
+this was written, Prisma had `8.0.0-rc.12` sitting on it.
 
-If the registry is unreachable or slow, `--latest` degrades to the baseline
-rather than failing the scaffold.
+**Automatic fallback.** A ceiling can only describe breakage that is already
+known. If a _future_ release breaks the install, the scaffolder rewrites every
+manifest with the tested set and retries, rather than handing over a project
+that cannot start:
 
-### Keeping the baseline fresh
+```
+⚠ npm install did not complete: npm install exited with code 1
+⚠ Install failed with current releases — retrying with the tested versions.
+✔ Installed with the tested versions.
+```
+
+**Offline degradation.** If npm or nodejs.org is slow or unreachable, resolution
+falls back to the tested baseline instead of failing the scaffold.
+
+### Keeping the baseline honest
+
+The tested baseline still matters — it is the fallback, so it must stay current.
 
 ```bash
 npm run versions:report
 ```
 
-Shows which baselines have fallen behind, and — more usefully — which ceilings
-now have a newer major behind them and might be liftable.
-
-A weekly **dependency canary** (`.github/workflows/dependency-canary.yml`) runs
-the smoke matrix with `--latest` and files an issue when an upstream release
-breaks a generated project. That is what stops this list going stale: breakage
-surfaces in this repository within a week, not in someone's first five minutes
-with the tool.
+Shows what has drifted and which ceilings now have a newer major behind them.
+A weekly **dependency canary** scaffolds against current releases, runs the full
+gates, and files an issue when an upstream release breaks a generated project —
+so breakage surfaces here within a week rather than in someone's first install.
 
 ## Design decisions worth knowing
 
@@ -238,7 +252,7 @@ shape rather than eight signatures.
 
 ## Requirements
 
-- Node.js 22 or newer (24 recommended — `.nvmrc` pins it)
+- Node.js 22 or newer. Generated projects pin whatever LTS is current when you scaffold them.
 - npm 10+
 - Docker, only if you pick a database or want to build images
 
