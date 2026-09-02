@@ -23,6 +23,9 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
+  # A tag push sets github.ref_name to the tag; a manual run sets it to the
+  # branch, so fall back to the tag the operator supplied.
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   # =========================================================================
@@ -41,6 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -60,7 +64,7 @@ jobs:
       - name: 🔍 Confirm the tag matches package.json
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME#v}"
+          TAG="${RELEASE_TAG#v}"
           PKG="$(node -p "require('./package.json').version")"
           if [ "$TAG" != "$PKG" ]; then
             echo "::error::Tag v$TAG does not match package.json version $PKG"
@@ -109,6 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
       - uses: actions/setup-node@v4
@@ -144,6 +149,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
       - uses: actions/setup-node@v4
@@ -154,13 +160,30 @@ jobs:
 
       - run: npm ci
 
+      # npm rejects a provenance bundle from a private repository with E422,
+      # and --dry-run does not catch it because it never asks the registry to
+      # verify the bundle. Decide the flag from the repository's visibility so
+      # this publishes either way and picks provenance up automatically if the
+      # repository is ever made public.
+      - name: 🔐 Decide whether provenance is available
+        id: prov
+        env:
+          IS_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          if [ "$IS_PRIVATE" = "false" ]; then
+            echo "flag=--provenance" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+            echo "::notice::Repository is private, so npm cannot verify a provenance bundle. Publishing without it."
+          fi
+
       - name: 🔎 Dry-run the publish
-        run: npm publish --dry-run --provenance --access public
+        run: npm publish --dry-run --access public ${{ steps.prov.outputs.flag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 📦 Publish
-        run: npm publish --provenance --access public
+        run: npm publish --access public ${{ steps.prov.outputs.flag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -168,7 +191,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
             --generate-notes \
             --verify-tag
