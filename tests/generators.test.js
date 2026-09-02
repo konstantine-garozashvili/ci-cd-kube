@@ -1,3 +1,4 @@
+const fs = require('fs');
 const yaml = require('js-yaml');
 
 const { buildOptions } = require('../lib/options');
@@ -182,10 +183,70 @@ describe('database credentials never appear in committed files', () => {
     expect(example).not.toContain(`${dbUser}:${dbUser}@`);
   });
 
+  it('mongo runs with authentication enabled', () => {
+    const mongo = buildOptions({
+      targetPath: '/tmp/demo',
+      name: 'demo',
+      backend: 'hono',
+      frontend: 'vue',
+      database: 'mongodb',
+    });
+    const compose = generateDockerCompose(mongo);
+
+    // Without root credentials the container accepts any connection at all,
+    // which is worse than a weak password because nothing flags it.
+    expect(compose).toContain('MONGO_INITDB_ROOT_USERNAME');
+    expect(compose).toContain('MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?}');
+    expect(compose).toContain('authSource=admin');
+  });
+
+  it('a generated password reaches the mongo connection string', () => {
+    const mongo = buildOptions({
+      targetPath: '/tmp/demo',
+      name: 'demo',
+      backend: 'hono',
+      frontend: 'vue',
+      database: 'mongodb',
+    });
+    const token = 'unit-test-placeholder';
+    expect(generateBackendEnv(mongo, { dbPassword: token })).toContain(
+      `app:${token}@localhost:27017/app_db?authSource=admin`
+    );
+  });
+
   it('a generated password reaches the backend DATABASE_URL', () => {
     const token = 'unit-test-placeholder';
     expect(generateBackendEnv(withDb, { dbPassword: token })).toContain(
       `${dbUser}:${token}@localhost:5432/app_db`
     );
+  });
+});
+
+/**
+ * The landing page used to claim "System Operational" as static markup, which
+ * read the same whether or not anything was running. These guard the two
+ * things that made it real: the brand asset ships, and the status comes from
+ * a probe rather than a hardcoded string.
+ */
+describe('landing page reports measured state, not a fixed string', () => {
+  const templates = {
+    react: 'templates/frontend/react/src/App.jsx',
+    vue: 'templates/frontend/vue/src/App.vue',
+    nextjs: 'templates/frontend/nextjs/app/page.tsx',
+    vanilla: 'templates/frontend/vanilla/index.html',
+  };
+
+  it.each(Object.entries(templates))('%s renders the brand logo', (_name, file) => {
+    expect(fs.readFileSync(file, 'utf8')).toContain('/logo.png');
+  });
+
+  it.each(Object.entries(templates))('%s no longer hardcodes a healthy status', (_name, file) => {
+    const source = fs.readFileSync(file, 'utf8');
+    expect(source).not.toContain('System Operational');
+    expect(source).toContain('env-checks');
+  });
+
+  it('the shared brand asset is present to copy', () => {
+    expect(fs.existsSync('templates/shared/brand/logo.png')).toBe(true);
   });
 });
