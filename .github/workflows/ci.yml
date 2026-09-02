@@ -204,6 +204,11 @@ jobs:
       - name: 🎭 Run the generated E2E suite against the containers
         if: matrix.compose
         working-directory: app
+        env:
+          # Points Playwright at the running compose stack and turns its own
+          # webServer off. Without this it tries to start the app on ports the
+          # containers already hold, because reuseExistingServer is false in CI.
+          E2E_BASE_URL: http://127.0.0.1:5173
         run: |
           npx playwright install --with-deps chromium
           npx playwright test
