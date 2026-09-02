@@ -86,6 +86,39 @@ jobs:
   # cannot lint, build or test itself fails here, not in a user's first five
   # minutes.
   # =========================================================================
+  # =========================================================================
+  # Windows is where npm's optional-dependency handling differs, and it is what
+  # a large share of students actually develop on. One representative fullstack
+  # combination is enough to catch native-binding and path-separator breakage.
+  # =========================================================================
+  windows-smoke:
+    name: 🪟 Smoke on Windows (${{ matrix.combination }})
+    runs-on: windows-latest
+    needs: [quality]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        combination:
+          - express-react-postgres
+          - hono-vue-mongodb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: 🏗️ Scaffold and verify
+        run: node scripts/smoke.js --only=${{ matrix.combination }}
+
   scaffold-smoke:
     name: 🏗️ Smoke (${{ matrix.combination }})
     runs-on: ubuntu-latest

@@ -67,6 +67,25 @@ describe('BASELINE', () => {
   });
 });
 
+/**
+ * A Windows user hit "Cannot find native binding" on a fresh scaffold: vite 8
+ * depends on a rolldown release candidate whose platform binary npm fails to
+ * install there. These pin the reasoning in place so the ceiling is not lifted
+ * without re-testing on Windows.
+ */
+describe('vite stays on a rollup-based major', () => {
+  it('holds vite at 7', () => {
+    expect(CONSTRAINED.vite.max).toBe(7);
+    expect(CONSTRAINED.vite.reason).toMatch(/rolldown/i);
+    expect(majorOf(BASELINE.vite)).toBeLessThanOrEqual(7);
+  });
+
+  it('holds the react plugin at a version that peers vite 7', () => {
+    expect(CONSTRAINED['@vitejs/plugin-react'].max).toBe(5);
+    expect(majorOf(BASELINE['@vitejs/plugin-react'])).toBeLessThanOrEqual(5);
+  });
+});
+
 describe('resolveVersions', () => {
   it('returns the baseline untouched when pinned', async () => {
     const result = await resolveVersions({ latest: false });
