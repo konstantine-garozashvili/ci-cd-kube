@@ -182,6 +182,37 @@ describe('database credentials never appear in committed files', () => {
     expect(example).not.toContain(`${dbUser}:${dbUser}@`);
   });
 
+  it('mongo runs with authentication enabled', () => {
+    const mongo = buildOptions({
+      targetPath: '/tmp/demo',
+      name: 'demo',
+      backend: 'hono',
+      frontend: 'vue',
+      database: 'mongodb',
+    });
+    const compose = generateDockerCompose(mongo);
+
+    // Without root credentials the container accepts any connection at all,
+    // which is worse than a weak password because nothing flags it.
+    expect(compose).toContain('MONGO_INITDB_ROOT_USERNAME');
+    expect(compose).toContain('MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?}');
+    expect(compose).toContain('authSource=admin');
+  });
+
+  it('a generated password reaches the mongo connection string', () => {
+    const mongo = buildOptions({
+      targetPath: '/tmp/demo',
+      name: 'demo',
+      backend: 'hono',
+      frontend: 'vue',
+      database: 'mongodb',
+    });
+    const token = 'unit-test-placeholder';
+    expect(generateBackendEnv(mongo, { dbPassword: token })).toContain(
+      `app:${token}@localhost:27017/app_db?authSource=admin`
+    );
+  });
+
   it('a generated password reaches the backend DATABASE_URL', () => {
     const token = 'unit-test-placeholder';
     expect(generateBackendEnv(withDb, { dbPassword: token })).toContain(
