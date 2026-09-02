@@ -8,7 +8,7 @@ const {
   generateBackendDockerfile,
   generateFrontendDockerfile,
 } = require('../lib/generators/docker');
-const { generatePlaywrightConfig } = require('../lib/generators/config');
+const { generatePlaywrightConfig, generateBackendEnv } = require('../lib/generators/config');
 const { generateReadme } = require('../lib/generators/docs');
 const { BACKENDS, FRONTENDS, DATABASES } = require('../lib/constants');
 
@@ -143,5 +143,42 @@ describe('frontend Dockerfiles', () => {
     );
     expect(dockerfile).toContain('.next/standalone');
     expect(dockerfile).not.toContain('nginx');
+  });
+});
+
+/**
+ * GitGuardian flagged a literal `POSTGRES_PASSWORD: postgres` in the generated
+ * compose file. The credential is now generated per project and kept out of
+ * every committed file, so guard both halves of that.
+ */
+describe('database credentials never appear in committed files', () => {
+  const withDb = buildOptions({
+    targetPath: '/tmp/demo',
+    name: 'demo',
+    backend: 'express',
+    frontend: 'react',
+    database: 'postgres',
+  });
+
+  it('compose carries no literal password', () => {
+    const compose = generateDockerCompose(withDb);
+    expect(compose).not.toContain('POSTGRES_PASSWORD: postgres');
+    expect(compose).not.toContain('postgres:postgres@');
+  });
+
+  it('compose refuses to start when the password is unset', () => {
+    expect(generateDockerCompose(withDb)).toContain('POSTGRES_PASSWORD:?');
+  });
+
+  it('the committed backend .env.example carries a placeholder, not a secret', () => {
+    const example = generateBackendEnv(withDb, { dbPassword: 'replace-with-your-own' });
+    expect(example).toContain('replace-with-your-own');
+    expect(example).not.toContain('postgres:postgres@');
+  });
+
+  it('a generated password reaches the backend DATABASE_URL', () => {
+    expect(generateBackendEnv(withDb, { dbPassword: 's3cr3t-value' })).toContain(
+      'postgresql://postgres:s3cr3t-value@localhost:5432/app_db'
+    );
   });
 });

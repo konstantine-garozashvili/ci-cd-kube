@@ -73,6 +73,10 @@ on a prompt.
 **Pipeline** (`.github/workflows/ci-cd.yml`)
 
 - Gates **pull requests**, not just pushes to main.
+- Database credentials are generated per project, written to a gitignored
+  `.env`, and referenced from compose as `\${POSTGRES_PASSWORD:?…}` — so the
+  stack refuses to start on a missing password rather than falling back to a
+  guessable default, and nothing committed carries a real credential.
 - CI and CD are separated: builds and CVE scans run on pull requests, but the
   publish step is skipped unless the run came from main or a version tag.
 - `permissions: {}` at the workflow level; each job requests only what it needs.
