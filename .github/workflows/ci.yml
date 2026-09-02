@@ -1,10 +1,12 @@
 name: 🚀 CI
 
+# Continuous integration only. Nothing here publishes anything — releasing is
+# a separate workflow triggered by a version tag, so a compromised pull request
+# can never reach npm.
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_dispatch:
 
@@ -12,8 +14,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   NODE_VERSION: '24'
@@ -26,10 +27,16 @@ jobs:
     name: 🛡️ Lint, Test & Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
+          # gitleaks needs history to scan the commits in this push or PR.
           fetch-depth: 0
+          # The workflow never pushes, so leaving a credential in .git/config
+          # would only widen what a compromised step could reach.
+          persist-credentials: false
 
       - name: 🔑 Secret scan
         uses: gitleaks/gitleaks-action@v2
@@ -80,6 +87,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [quality]
     timeout-minutes: 25
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +103,8 @@ jobs:
           - nestjs-api-only
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -128,6 +139,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [quality]
     timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -146,6 +159,8 @@ jobs:
             compose: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -205,40 +220,3 @@ jobs:
         run: |
           docker compose down -v || true
           docker rm -f app-solo || true
-
-  # =========================================================================
-  # Publish to npm on a v* tag
-  # =========================================================================
-  publish:
-    name: 📦 Publish to npm
-    runs-on: ubuntu-latest
-    needs: [quality, scaffold-smoke, docker-smoke]
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: read
-      id-token: write
-    environment: npm-publish
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
-
-      - run: npm ci
-
-      - name: 🔍 Verify the tag matches package.json
-        run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PKG="$(node -p "require('./package.json').version")"
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::Tag v$TAG does not match package.json version $PKG"
-            exit 1
-          fi
-
-      - name: 📦 Publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

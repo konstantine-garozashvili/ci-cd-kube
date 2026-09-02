@@ -9,9 +9,7 @@ on:
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: write
+permissions: {}
 
 env:
   NODE_VERSION: '24'
@@ -21,8 +19,12 @@ jobs:
     name: 📊 Report version drift
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -41,6 +43,8 @@ jobs:
     name: 🧪 Smoke against latest (${{ matrix.combination }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +55,8 @@ jobs:
           - express-api-only
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -66,8 +72,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [drift, smoke-latest]
     if: failure()
+    permissions:
+      contents: read
+      # Only this job writes, and only to open the tracking issue.
+      issues: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: 📮 File or update the tracking issue
         env:

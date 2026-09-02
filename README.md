@@ -73,6 +73,9 @@ on a prompt.
 **Pipeline** (`.github/workflows/ci-cd.yml`)
 
 - Gates **pull requests**, not just pushes to main.
+- CI and CD are separated: builds and CVE scans run on pull requests, but the
+  publish step is skipped unless the run came from main or a version tag.
+- `permissions: {}` at the workflow level; each job requests only what it needs.
 - Gitleaks → Prettier → ESLint → `npm audit` → Semgrep → unit → integration →
   Playwright → hadolint → build → Trivy → publish.
 - Images are scanned **before** they are published, and never published from a
@@ -238,6 +241,10 @@ lib/
     ├── config.js       Playwright, .env, gitleaks
     └── docs.js         The generated project's README
 templates/              Files copied verbatim into generated projects
+.github/workflows/
+├── ci.yml              Lint, test, scaffold-smoke, image build — publishes nothing
+├── release.yml         Tag-triggered: re-verifies, then publishes to npm
+└── dependency-canary.yml   Weekly run against current releases
 scripts/
 ├── smoke.js            Matrix smoke test (add --latest for the canary mode)
 ├── versions-report.js  Drift between the baseline and npm today
@@ -255,6 +262,31 @@ shape rather than eight signatures.
 - Node.js 22 or newer. Generated projects pin whatever LTS is current when you scaffold them.
 - npm 10+
 - Docker, only if you pick a database or want to build images
+
+## Releasing
+
+CI and CD are deliberately separate workflows:
+
+|               | Trigger                    | Can publish?                                |
+| ------------- | -------------------------- | ------------------------------------------- |
+| `ci.yml`      | pull request, push to main | **No** — it has no write permissions at all |
+| `release.yml` | `v*` tag                   | Yes, after re-verifying the tagged commit   |
+
+Nothing a contributor can trigger reaches npm. A tag is not proof the code was
+ever green — it can be pushed to any commit — so `release.yml` re-runs the
+lint, audit, tests, packaging check and the full smoke matrix against the tagged
+commit before publishing.
+
+```bash
+npm version minor        # bumps package.json and creates the tag
+git push --follow-tags
+```
+
+The publish job runs in the `npm-publish` environment. Add a required reviewer
+there to make every release need a human approval, and store `NPM_TOKEN` as an
+environment secret rather than a repository secret so no other workflow can read
+it. Publishing uses `--provenance`, which signs the package with a verifiable
+link back to the workflow run.
 
 ## Contributing
 
