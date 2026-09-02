@@ -1,6 +1,6 @@
 {
   "name": "laplateforme-starter",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Scaffold a production-ready Node.js project: security gates, CI/CD, tests and containers that work from the first commit",
   "bin": {
     "laplateforme-starter": "bin/cli.js",
