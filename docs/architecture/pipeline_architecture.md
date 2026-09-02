@@ -1,99 +1,198 @@
 # 🏗️ CI/CD & DevSecOps Pipeline Architecture
 
 ## 📌 Overview
-This document specifies the technical architecture and workflow logic of the **Continuous Integration (CI) and Secure Container Publishing** pipeline for the `ci-cd-kube` project. The automated pipeline enforces **Shift-Left Security**, environment provisioning, a full **Testing Pyramid** (Unit, Integration, and Playwright E2E), **OWASP Security Gates** (Semgrep OWASP Top-10 SAST & OWASP ZAP DAST), Docker multi-stage builds, container vulnerability scanning with **Trivy**, **GitHub Container Registry (GHCR)** publication, and real-time **Google Chat** alerting.
 
-*(Note: Kubernetes deployment stages are maintained as a subsequent roadmap milestone).*
+This document specifies the pipeline that `laplateforme-starter` generates into
+every scaffolded project at `.github/workflows/ci-cd.yml`.
+
+The pipeline enforces shift-left security, the full testing pyramid (unit,
+integration, Playwright end-to-end), OWASP gates (Semgrep SAST and ZAP DAST),
+multi-stage container builds, Trivy CVE scanning, GHCR publication and Google
+Chat alerting.
+
+Two design rules govern it:
+
+1. **Pull requests are gated.** A quality gate that only runs after merge is not
+   a gate. Every job below runs on `pull_request` as well as `push`.
+2. **Gates that claim to block, block.** Steps that are advisory say so
+   explicitly rather than passing quietly with `exit-code: 0`. Today the only
+   advisory step is the ZAP baseline, which reports findings that are expected
+   on a fresh project.
 
 ---
 
-## 📊 Complete UML Activity Diagram (Chronological Workflow)
+## 📊 Pipeline flow
 
 ```mermaid
 flowchart TD
-    StartNode(["● Start: Git Push or Tag"]) --> GHATrigger["Trigger GitHub Actions Runner"]
+    Start(["● push to main · pull request · tag v*"]) --> Trigger["GitHub Actions runner"]
 
-    subgraph PHASE1 ["Phase 1: Environment Setup, Shift-Left Security & Testing Gate (CI)"]
-        GHATrigger --> Checkout["1.1 📥 Checkout Code (actions/checkout@v4, fetch-depth: 0)"]
-        Checkout --> SecretGate["1.2 🔑 Gitleaks: Scan Commits for Exposed Secrets & Keys"]
-        SecretGate --> SetupNode["1.3 ⚙️ Setup Node.js & Cache (actions/setup-node@v4)"]
-        SetupNode --> InstallDeps["1.4 📦 Install Clean Dependencies (npm ci)"]
-        InstallDeps --> Lint["1.5 🧹 ESLint: Code Standards & Formatting"]
-        Lint --> DepAudit["1.6 🛡️ SCA: Dependency Vulnerability Audit (npm audit)"]
-        DepAudit --> SAST["1.7 🔍 SAST: Semgrep OWASP Top-10 Security Scan"]
-        SAST --> UnitTests["1.8 🧪 Unit Tests: Pure Functions & Logic (Jest)"]
-        UnitTests --> IntegrationTests["1.9 🔄 Integration Tests: HTTP Routes & APIs (Supertest)"]
-        IntegrationTests --> PlaywrightE2E["1.10 🎭 Playwright E2E: Headless Browser Scenarios"]
-        PlaywrightE2E --> OWASPZAP["1.11 ⚡ OWASP ZAP DAST: Live Vulnerability & Header Scan (zaproxy)"]
-        OWASPZAP --> Phase1Dec{"All CI & OWASP Gates Passed?"}
+    subgraph PHASE1 ["Phase 1 — Quality gate (blocking)"]
+        Trigger --> Checkout["📥 Checkout (fetch-depth: 0)"]
+        Checkout --> Secrets["🔑 Gitleaks: secret scan over history"]
+        Secrets --> Node["⚙️ Setup Node.js + npm cache"]
+        Node --> Install["📦 npm ci (requires a committed lockfile)"]
+        Install --> Format["🎨 Prettier: npm run format:check"]
+        Format --> Lint["🧹 ESLint: npm run lint"]
+        Lint --> Audit["🛡️ SCA: npm audit --omit=dev --audit-level=high"]
+        Audit --> SAST["🔍 SAST: Semgrep p/owasp-top-ten (--error)"]
+        SAST --> Migrate["🗄️ Apply schema to the service container"]
+        Migrate --> Unit["🧪 Unit tests"]
+        Unit --> Integration["🔄 Integration tests (real HTTP, real database)"]
+        Integration --> Gate1{"All gates clean?"}
     end
 
-    subgraph PHASE2 ["Phase 2: Secure Docker Build & GHCR Publishing"]
-        Hadolint["2.1 🐳 Hadolint: Dockerfile Security & Best Practice Lint"]
-        Hadolint --> SetupBuildx["2.2 🛠️ Setup Docker Buildx & Cache Engine"]
-        SetupBuildx --> CheckTrigger{"Trigger Type?"}
-        CheckTrigger -->|"Push 'main'"| DevTag["Dev Strategy: dev-sha, dev-latest"]
-        CheckTrigger -->|"Tag 'v*'"| ProdTag["Prod Strategy: vX.Y.Z, latest"]
-        DevTag --> DockerBuild["2.3 🏗️ Multi-Stage Docker Image Build"]
-        ProdTag --> DockerBuild
-        DockerBuild --> TrivyScan["2.4 🛡️ Trivy: Container Image CVE Scan"]
-        TrivyScan --> PushGHCR["2.5 🏷️ Authenticate with GITHUB_TOKEN & Push to GHCR"]
-        PushGHCR --> Phase2Dec{"Build & Push Succeeded?"}
+    subgraph PHASE2 ["Phase 2 — End-to-end (blocking)"]
+        Browsers["🎭 Install Chromium"] --> E2E["🎭 Playwright: browser journey + API contract"]
+        E2E --> Report["📊 Upload HTML report artifact"]
+        Report --> Gate2{"Suite green?"}
     end
 
-    subgraph PHASE3 ["Phase 3: SOAR Monitoring & Google Chat Alerting"]
-        FailAlert["🔴 Dispatch Google Chat Failure Alert<br/>• Exact Offending Step: Gitleaks / Lint / OWASP / Unit / Integ / Playwright / Trivy<br/>• Failure Logs & Traceback<br/>• Commit SHA, Author & Branch/Tag"] --> TermFail(["● Terminated"])
-        SuccAlert["🟢 Dispatch Google Chat Success Alert<br/>• All 11 CI & OWASP Gates: 100% Passed<br/>• Image Published to GHCR with Verified Tags<br/>• Commit SHA, Author & Run Link"] --> TermSucc(["◎ Pipeline Succeeded"])
+    subgraph PHASE3 ["Phase 3 — Build & scan, per service (blocking)"]
+        Hadolint["🐳 Hadolint: Dockerfile lint"] --> Buildx["🛠️ Setup Buildx + layer cache"]
+        Buildx --> Tags["🏷️ Compute tags (PR · dev-sha · semver · latest)"]
+        Tags --> Build["🏗️ Build image, load locally — not pushed yet"]
+        Build --> Trivy["🛡️ Trivy CVE scan (CRITICAL,HIGH · exit-code 1)"]
+        Trivy --> IsPR{"Pull request?"}
+        IsPR -->|"Yes"| SkipPush["⏭️ Skip publish (untrusted branch)"]
+        IsPR -->|"No"| Login["🔐 Login to GHCR"]
+        Login --> Push["📤 Publish verified image"]
     end
 
-    %% Success Transitions
-    Phase1Dec -->|"Yes (All 11 CI Gates Clean)"| Hadolint
-    Phase2Dec -->|"Yes (Zero High CVEs & Pushed)"| SuccAlert
+    subgraph PHASE4 ["Phase 4 — DAST (advisory, push only)"]
+        StartApp["🚀 Start the API + wait-on /healthz"] --> ZAP["⚡ OWASP ZAP baseline — report only"]
+    end
 
-    %% Fail-Fast Transitions (Immediate Alert & Terminate)
-    Phase1Dec -->|"No (Any Security, OWASP, Lint, or Test Failure)"| FailAlert
-    Phase2Dec -->|"No (Dockerfile Lint, Image CVE, or Push Failure)"| FailAlert
+    subgraph PHASE5 ["Phase 5 — Notify"]
+        Success["🟢 Google Chat card: all gates passed"] --> Done(["◎ Pipeline succeeded"])
+        Failure["🔴 Google Chat card: which job failed + run link"] --> Stop(["● Terminated"])
+    end
+
+    Gate1 -->|"Yes"| Browsers
+    Gate1 -->|"No"| Failure
+    Gate2 -->|"Yes"| Hadolint
+    Gate2 -->|"No"| Failure
+    Gate1 -->|"Yes"| StartApp
+    Push --> Success
+    SkipPush --> Success
+    Trivy -->|"CVE found"| Failure
 ```
 
 ---
 
-## 🛡️ OWASP & DevSecOps Security Stack
+## 🛡️ The security stack
 
-### 1. The 3 OWASP Pillars in CI/CD
-| OWASP Layer | Tool | Type | What It Protects |
-|---|---|---|---|
-| **🔍 SAST (Static Analysis)** | **Semgrep `p/owasp-top-ten`** | White-box code scan | Scans JavaScript/Node.js source code for OWASP Top-10 code flaws (SQLi, Code Injection, hardcoded secrets, insecure crypto). |
-| **🛡️ SCA (Dependency Scan)** | **`npm audit` / Trivy FS** | Third-party library scan | Detects known CVEs and security advisories in third-party npm dependencies. |
-| **⚡ DAST (Dynamic Analysis)** | **OWASP ZAP (`zaproxy/action-baseline`)** | Black-box active probe | Runs against the live running application to probe for missing security headers (CSP, HSTS, X-Frame-Options), cookie security, XSS, and CORS misconfigurations. |
+| Layer          | Tool                      | Type            | Blocking    | What it protects                                                                                                                                    |
+| -------------- | ------------------------- | --------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Secrets**    | Gitleaks                  | History scan    | ✅          | Tokens, keys and credentials committed by accident. Also runs as a pre-commit hook locally.                                                         |
+| **SAST**       | Semgrep `p/owasp-top-ten` | White-box       | ✅          | Injection, unsafe deserialisation, hardcoded secrets, weak crypto in your own source.                                                               |
+| **SCA**        | `npm audit --omit=dev`    | Dependency scan | ✅          | Known CVEs in packages that actually ship. Dev-only advisories are reported but do not block, because they cannot be exploited in production.       |
+| **Container**  | Trivy                     | Image scan      | ✅          | OS and library CVEs in the built image, scanned **before** publication. `ignore-unfixed` skips advisories with no available patch.                  |
+| **Dockerfile** | Hadolint                  | Lint            | ✅          | Missing non-root user, unpinned bases, instruction-order mistakes.                                                                                  |
+| **DAST**       | OWASP ZAP baseline        | Black-box       | ⚠️ advisory | Missing security headers, cookie flags, CORS misconfiguration on the live app. Read the artifact — a green tick here is not a clean bill of health. |
+
+To accept a specific Trivy finding, add it to a `.trivyignore` file. Do not
+disable the gate.
 
 ---
 
-## 📋 Chronological Step Breakdown
+## 📋 Job breakdown
 
-### **Phase 1: Environment Setup, Shift-Left Security, Testing & OWASP**
-1. **`actions/checkout@v4`**: Checks out repository code with `fetch-depth: 0` for complete commit history analysis.
-2. **🔑 Gitleaks**: Scans commit history and diffs to prevent secrets, tokens, API keys, or private keys from leaking.
-3. **`actions/setup-node@v4`**: Installs Node.js 20.x runtime and sets up automated caching for `~/.npm`.
-4. **`npm ci`**: Installs clean, locked dependencies from `package-lock.json`.
-5. **🧹 ESLint & Prettier**: Enforces code formatting, linting rules, and prevents dangerous syntax anti-patterns.
-6. **🛡️ `npm audit` (SCA)**: Scans third-party packages for high/critical security vulnerabilities.
-7. **🔍 Semgrep SAST (OWASP Top-10)**: Static security analysis against official OWASP Top 10 rules.
-8. **🧪 Unit Tests (Jest)**: Executes unit tests for pure functions and calculations in complete isolation.
-9. **🔄 Integration Tests (Supertest)**: Tests API endpoints (`/`, `/healthz`), headers, middleware, and HTTP response codes.
-10. **🎭 Playwright E2E Tests**: Launches headless browser instances (Chromium) to execute real user scenarios.
-11. **⚡ OWASP ZAP DAST Scan**: Launches dynamic penetration scanner against `http://localhost:3000` to verify security headers and active web defenses.
+### Phase 1 — `quality-gate`
 
-### **Phase 2: Secure Containerization & GHCR Push**
-1. **🐳 Hadolint**: Lints `Dockerfile` against CIS security benchmarks (e.g. non-root user, proper instruction order).
-2. **`docker/setup-buildx-action`**: Configures Docker Buildx for multi-platform layer caching.
-3. **Dynamic Tagging Strategy**:
-   - `refs/heads/main` ➔ `dev-<sha>`, `dev-latest`
-   - `refs/tags/v*` ➔ SemVer `vX.Y.Z`, `latest`
-4. **Multi-Stage Build**: Compiles minimal production image.
-5. **🛡️ Trivy Container Scan**: Scans the compiled container image for OS and library CVEs.
-6. **GHCR Publication**: Authenticates with `GITHUB_TOKEN` and publishes the image to `ghcr.io`.
+Runs a database service container (`postgres:16-alpine` or `mongo:7-jammy`)
+when the project uses one, so integration tests exercise a real driver rather
+than a mock.
 
-### **Phase 3: SOAR Google Chat Webhook**
-- Runs on `if: always()`.
-- **🟢 Success**: Publishes complete success card with image digest, tag, commit info, and runtime metrics.
-- **🔴 Failure**: Pinpoints the exact failing step, extracts error logs, and alerts the developer immediately.
+1. `actions/checkout@v4` with `fetch-depth: 0`, which Gitleaks needs to scan history.
+2. **Gitleaks** over the commits in this push or pull request.
+3. `actions/setup-node@v4` with npm caching.
+4. `npm ci` — requires `package-lock.json` to be committed. It is deliberately
+   **not** gitignored in generated projects.
+5. `npm run format:check` — Prettier.
+6. `npm run lint` — ESLint across every workspace.
+7. `npm audit --omit=dev --audit-level=high`.
+8. `semgrep scan --config="p/owasp-top-ten" --error`.
+9. Schema application, then unit and integration tests.
+
+### Phase 2 — `e2e`
+
+Playwright starts the application itself through its `webServer` config, so the
+suite works from a clean checkout. It runs two specs:
+
+- **`app.spec.js`** — browser journey through the landing page.
+- **`api.spec.js`** — API contract, driven through the frontend origin so the
+  run also proves the same-origin proxy is wired correctly.
+
+The HTML report uploads as an artifact whenever the job is not cancelled.
+
+### Phase 3 — `docker`
+
+A matrix job, one leg per service the project generates (backend, and frontend
+when there is one).
+
+- Images build with `load: true` and are **not** pushed yet.
+- Trivy scans the local image. Publishing an image and _then_ scanning it is
+  backwards, so the order here is build → scan → push.
+- Publication is skipped entirely on pull requests: the branch is untrusted and
+  `GITHUB_TOKEN` is read-only there anyway.
+
+Tagging strategy:
+
+| Trigger        | Tags                      |
+| -------------- | ------------------------- |
+| Pull request   | `pr-<number>`             |
+| Push to `main` | `dev-<sha>`, `dev-latest` |
+| Tag `v*`       | `X.Y.Z`, `latest`         |
+
+### Phase 4 — `dast`
+
+Push-only. Boots the API, waits on `/healthz`, then runs the ZAP baseline in
+report-only mode.
+
+### Phase 5 — `notify`
+
+Runs `if: always()` on pushes. The webhook is read from
+`secrets.GOOGLE_CHAT_WEBHOOK_URL` and checked **inside** the script rather than
+in an `if:` expression — a step's own `env:` block is not visible to its own
+`if:`, so guarding that way would silently never run.
+
+The card payload is assembled with `jq`, so branch names and commit metadata
+cannot break out of the JSON strings they are placed in.
+
+Without the secret configured, the step logs a note explaining how to add it
+and passes.
+
+---
+
+## 🐳 Container design
+
+Both images are built from the **repository root** with an explicit `-f` path.
+This is required, not stylistic: npm workspaces keep a single lockfile at the
+root, and `npm ci` cannot run without it.
+
+```bash
+docker build -f backend/Dockerfile -t app-backend .
+```
+
+The backend image installs the **full** dependency tree, runs the build and any
+`postinstall` code generation (Prisma's client), then removes dev dependencies
+with `npm prune --omit=dev`. Installing with `npm ci --omit=dev` up front would
+fail before code generation could run.
+
+Both images:
+
+- run as the non-root `node` user,
+- use multi-stage builds so no build toolchain reaches production,
+- declare a `HEALTHCHECK` that hits `/healthz`,
+- use `tini` as PID 1 so `SIGTERM` reaches Node and shutdown stays graceful.
+
+---
+
+## 🩺 Health probe contract
+
+| Endpoint       | Question              | Behaviour                                                                                                                                           |
+| -------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz` | Is the process alive? | Always 200 while running. Checks **no** dependencies — a liveness probe that fails on a database blip makes Kubernetes restart a healthy container. |
+| `GET /ready`   | Can it serve traffic? | Checks the database and returns **503** when it cannot, so the load balancer drains this instance instead of sending it live traffic.               |
+| `GET /live`    | Cheap ping            | Plaintext `OK` for uptime monitors.                                                                                                                 |

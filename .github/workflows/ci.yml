@@ -1,0 +1,231 @@
+name: 🚀 CI
+
+# Continuous integration only. Nothing here publishes anything — releasing is
+# a separate workflow triggered by a version tag, so a compromised pull request
+# can never reach npm.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  # =========================================================================
+  # Static checks on the scaffolder's own source
+  # =========================================================================
+  quality:
+    name: 🛡️ Lint, Test & Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # gitleaks lists the pull request's commits through the API, which needs
+      # this scope. Without it the action fails with "Resource not accessible
+      # by integration" on every pull request.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks needs history to scan the commits in this push or PR.
+          fetch-depth: 0
+          # The workflow never pushes, so leaving a credential in .git/config
+          # would only widen what a compromised step could reach.
+          persist-credentials: false
+
+      - name: 🔑 Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: 🎨 Check formatting
+        run: npm run format:check
+
+      - name: 🧹 Lint
+        run: npm run lint
+
+      - name: 🛡️ Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: 🔍 SAST scan
+        run: |
+          python3 -m pip install --quiet semgrep
+          semgrep scan --config="p/owasp-top-ten" --error --metrics=off bin lib
+
+      - name: 🧪 Generator unit tests
+        run: npm run test:coverage
+
+      # A pinned action tag that does not exist fails a generated project's very
+      # first pipeline run, with an error that points at the workflow rather
+      # than at this scaffolder. Catch it here instead.
+      - name: 🔗 Verify every generated action reference resolves
+        run: npm run check:actions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =========================================================================
+  # Scaffold real projects and run THEIR gates against them.
+  #
+  # This is the check that keeps the templates honest: a generated project that
+  # cannot lint, build or test itself fails here, not in a user's first five
+  # minutes.
+  # =========================================================================
+  scaffold-smoke:
+    name: 🏗️ Smoke (${{ matrix.combination }})
+    runs-on: ubuntu-latest
+    needs: [quality]
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        combination:
+          - express-react-postgres
+          - express-vanilla-none
+          - hono-vue-mongodb
+          - hono-react-postgres
+          - nestjs-nextjs-postgres
+          - express-api-only
+          - hono-api-only
+          - nestjs-api-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: 🎭 Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: 🏗️ Scaffold and verify
+        run: node scripts/smoke.js --only=${{ matrix.combination }} --e2e
+
+  # =========================================================================
+  # Build the container images a generated project would produce, then boot
+  # them against a real database.
+  #
+  # The matrix covers all four Dockerfile shapes the generator emits, because
+  # each one failed differently the first time it was built:
+  #   - interpreted backend in a workspace  (Prisma needs openssl on Alpine)
+  #   - compiled backend                    (TypeScript build stage)
+  #   - static frontend behind nginx        (envsubst proxy config)
+  #   - Next.js standalone                  (runtime proxy via middleware)
+  #   - single package, Dockerfile at root  (COPY . . rather than COPY backend)
+  #
+  # Nothing is published here; this only proves the Dockerfiles are buildable
+  # and that the containers actually serve traffic.
+  # =========================================================================
+  docker-smoke:
+    name: 🐳 Image build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    needs: [quality]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: express-react-postgres
+            args: --backend=express --frontend=react --database=postgres
+            compose: true
+          - name: nestjs-nextjs-postgres
+            args: --backend=nestjs --frontend=nextjs --database=postgres
+            compose: true
+          - name: hono-vue-mongodb
+            args: --backend=hono --frontend=vue --database=mongodb
+            compose: true
+          - name: express-api-only
+            args: --backend=express --frontend=none --database=none
+            compose: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 🏗️ Scaffold the project
+        run: node bin/cli.js app --defaults --no-git ${{ matrix.args }}
+
+      - name: 🐳 Lint the generated Dockerfiles
+        working-directory: app
+        run: |
+          for dockerfile in Dockerfile backend/Dockerfile frontend/Dockerfile; do
+            [ -f "$dockerfile" ] || continue
+            echo "── $dockerfile"
+            docker run --rm -i hadolint/hadolint:latest-alpine \
+              hadolint --failure-threshold error - < "$dockerfile"
+          done
+
+      - name: 🚀 Bring the stack up and probe it
+        if: matrix.compose
+        working-directory: app
+        run: |
+          docker compose up --build -d
+          npx --yes wait-on http://127.0.0.1:3000/healthz http://127.0.0.1:5173 --timeout 120000
+
+          echo "── backend liveness"  && curl -fsS http://127.0.0.1:3000/healthz
+          echo "── backend readiness" && curl -fsS http://127.0.0.1:3000/ready
+          echo "── proxied through the frontend origin"
+          curl -fsS http://127.0.0.1:5173/api/info
+          curl -fsS http://127.0.0.1:5173/healthz
+
+      - name: 🎭 Run the generated E2E suite against the containers
+        if: matrix.compose
+        working-directory: app
+        env:
+          # Points Playwright at the running compose stack and turns its own
+          # webServer off. Without this it tries to start the app on ports the
+          # containers already hold, because reuseExistingServer is false in CI.
+          E2E_BASE_URL: http://127.0.0.1:5173
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - name: 🐳 Build and probe the single-package image
+        if: '!matrix.compose'
+        working-directory: app
+        run: |
+          docker build -t app-solo .
+          docker run -d --name app-solo -p 3000:3000 app-solo
+          npx --yes wait-on http://127.0.0.1:3000/healthz --timeout 60000
+          curl -fsS http://127.0.0.1:3000/healthz
+          curl -fsS http://127.0.0.1:3000/ready
+
+      - name: 🧹 Tear down
+        if: always()
+        working-directory: app
+        run: |
+          docker compose down -v || true
+          docker rm -f app-solo || true

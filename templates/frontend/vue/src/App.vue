@@ -3,7 +3,7 @@
     <div class="card" id="app-card">
       <div class="header">
         <h1 id="app-title">🏛️ La Plateforme Fullstack Starter</h1>
-        <p class="subtitle">Vue 3 + Vite Frontend connected to Backend API ({{ apiBase }})</p>
+        <p class="subtitle">Vue 3 + Vite Frontend connected to Backend API ({{ apiLabel }})</p>
         <div class="status-badge" id="status-badge">
           <span class="pulse"></span> System Operational
         </div>
@@ -81,7 +81,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Empty by default: requests go to this origin and Vite (dev) or nginx (prod) proxies them to the API.
+const apiBase = import.meta.env.VITE_API_URL ?? '';
+const apiLabel = apiBase || 'same-origin proxy';
 const activeRoute = ref('/healthz');
 const response = ref('Loading endpoint data...');
 const loading = ref(false);

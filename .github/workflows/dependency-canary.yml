@@ -1,0 +1,114 @@
+name: 🧪 Breaking-bad 💀
+
+# Scaffolds projects against whatever npm publishes *today* rather than the
+# tested baseline, so upstream breakage shows up here instead of in someone's
+# first five minutes with the tool.
+on:
+  schedule:
+    # Mondays, 06:00 UTC.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  drift:
+    name: 📊 Report version drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+
+      - name: 📊 Drift report
+        run: npm run versions:report
+
+      - name: 🔗 Action references still resolve
+        run: npm run check:actions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  smoke-latest:
+    name: 🧪 Smoke against latest (${{ matrix.combination }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        combination:
+          - express-react-postgres
+          - hono-vue-mongodb
+          - nestjs-nextjs-postgres
+          - express-api-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: 🧪 Scaffold and verify against current releases
+        run: node scripts/smoke.js --only=${{ matrix.combination }} --latest --e2e
+
+  report:
+    name: 📮 Open an issue if the canary broke
+    runs-on: ubuntu-latest
+    needs: [drift, smoke-latest]
+    if: failure()
+    permissions:
+      contents: read
+      # Only this job writes, and only to open the tracking issue.
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 📮 File or update the tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Dependency canary failing"
+
+          BODY=$(cat <<EOB
+          The weekly dependency canary failed.
+
+          A newer release of one or more dependencies breaks a generated project,
+          or a pinned GitHub Action reference stopped resolving.
+
+          Run: $RUN_URL
+
+          To resolve:
+          1. \`npm run versions:report\` to see what moved.
+          2. Reproduce with \`node scripts/smoke.js --latest --only=<combination>\`.
+          3. Either update BASELINE in \`lib/versions.js\` once the matrix passes,
+             or add a ceiling to CONSTRAINED with the reason.
+          EOB
+          )
+
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY" --label dependencies
+          fi

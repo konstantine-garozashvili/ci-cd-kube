@@ -1,0 +1,13 @@
+# Formats and lints only the files you actually staged.
+npx --no-install lint-staged || exit 1
+
+# Blocks commits that contain secrets. Skipped with a hint when gitleaks is not
+# installed locally — CI runs the same scan and will catch it there.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner || {
+    echo "❌ gitleaks found a secret in your staged changes. Remove it before committing."
+    exit 1
+  }
+else
+  echo "ℹ️  gitleaks not installed — skipping local secret scan (CI still enforces it)."
+fi

@@ -1,0 +1,174 @@
+name: 📦 Release
+
+# Continuous delivery only, and only from a version tag.
+#
+# Kept separate from CI on purpose: a pull request can run CI, but nothing a
+# contributor can trigger is able to reach npm. Publishing requires a tag on a
+# commit that already sits in the repository, plus the npm-publish environment,
+# which is where the approval and the NPM_TOKEN live.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish (e.g. v2.0.0)'
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  # =========================================================================
+  # A tag is not proof the code was ever green — it can be pushed to any
+  # commit. Re-run the gate here rather than trusting that CI passed earlier.
+  # =========================================================================
+  verify:
+    name: 🛡️ Re-verify the tagged commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # gitleaks reads pull request commits through the API when one is in
+      # scope; harmless on a tag build and required everywhere else.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 🔑 Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: 🔍 Confirm the tag matches package.json
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG does not match package.json version $PKG"
+            exit 1
+          fi
+          echo "Tag and manifest agree on $PKG."
+
+      - name: 🎨 Check formatting
+        run: npm run format:check
+
+      - name: 🧹 Lint
+        run: npm run lint
+
+      - name: 🛡️ Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: 🧪 Unit tests
+        run: npm run test:coverage
+
+      - name: 🔗 Verify generated action references resolve
+        run: npm run check:actions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Confirm the tarball carries every template
+        run: npx jest tests/packaging.test.js
+
+  # =========================================================================
+  # Scaffold real projects from the tagged code and run their own gates.
+  # =========================================================================
+  smoke:
+    name: 🏗️ Smoke (${{ matrix.combination }})
+    runs-on: ubuntu-latest
+    needs: [verify]
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        combination:
+          - express-react-postgres
+          - hono-vue-mongodb
+          - nestjs-nextjs-postgres
+          - express-api-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: 🏗️ Scaffold and verify
+        run: node scripts/smoke.js --only=${{ matrix.combination }} --e2e
+
+  # =========================================================================
+  # Publish. `environment` is what gates this — configure a required reviewer
+  # on the npm-publish environment to make releases need a human approval.
+  # =========================================================================
+  publish:
+    name: 📦 Publish to npm
+    runs-on: ubuntu-latest
+    needs: [verify, smoke]
+    timeout-minutes: 15
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/laplateforme-starter
+    permissions:
+      # write is needed only to create the GitHub release at the end; every
+      # other job in this workflow stays read-only.
+      contents: write
+      # Required for npm provenance, which signs the package with a verifiable
+      # link back to this workflow run.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: 🔎 Dry-run the publish
+        run: npm publish --dry-run --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 📦 Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 📝 Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag

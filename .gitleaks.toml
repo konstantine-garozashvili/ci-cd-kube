@@ -1,20 +1,19 @@
-# Gitleaks Configuration for Shift-Left Secret Detection
-title = "ci-cd-kube secret scan profile"
+# Secret scanning profile for the scaffolder itself.
+title = "laplateforme-starter secret scan profile"
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Global allowlisted paths and mock test keys"
+description = "Template placeholders are not real credentials"
 paths = [
   '''^\.gitleaks\.toml$''',
-  '''^\.env\.example$''',
-  '''^tests/.*''',
-  '''^package-lock\.json$''',
-  '''^docs/.*'''
+  '''^templates/''',
+  '''^lib/generators/''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)docs/''',
 ]
 regexes = [
-  '''(?i)example[_-]?key''',
-  '''(?i)mock[_-]?token''',
-  '''(?i)dummy[_-]?secret'''
+  '''postgresql://postgres:postgres@''',
+  '''postgresql://test_user:test_password@''',
 ]

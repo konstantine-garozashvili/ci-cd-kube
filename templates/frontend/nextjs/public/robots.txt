@@ -1,0 +1,3 @@
+# Served from /robots.txt. Tighten before going to production.
+User-agent: *
+Allow: /
