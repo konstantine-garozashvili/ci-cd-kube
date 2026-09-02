@@ -257,6 +257,10 @@ function runCase(config, workDir, options) {
     ['npm run build', ['run', 'build', '--if-present']],
     ['npm run test:unit', ['run', 'test:unit']],
     ['npm run test:integration', ['run', 'test:integration']],
+    // The generated workflow runs this on the project's first push. Nothing
+    // here used to, so an upstream advisory in a transitive dependency could
+    // turn a fresh scaffold's CI red before its author had written any code.
+    ['npm audit --omit=dev --audit-level=high', ['audit', '--omit=dev', '--audit-level=high']],
   ];
 
   for (const [label, args] of gates) {
