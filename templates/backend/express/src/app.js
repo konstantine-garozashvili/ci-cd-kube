@@ -1,4 +1,5 @@
 const express = require('express');
+const config = require('./config');
 const path = require('path');
 const { securityHeaders, corsMiddleware, limiter } = require('./middleware/security');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
@@ -6,6 +7,10 @@ const healthRoutes = require('./routes/health.routes');
 const apiRoutes = require('./routes/api.routes');
 
 const app = express();
+
+// 0. Proxy awareness. Set before the rate limiter so it derives client IPs
+// from the correct hop instead of rejecting the request outright.
+app.set('trust proxy', config.trustProxy);
 
 // 1. Security & Core Middleware
 app.use(securityHeaders);

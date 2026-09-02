@@ -11,6 +11,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
   const config = app.get(ConfigService);
 
+  // Set before the rate limiter so it derives client IPs from the correct hop
+  // instead of rejecting proxied requests outright.
+  app.getHttpAdapter().getInstance().set('trust proxy', config.get('trustProxy'));
+
   app.use(helmet({ crossOriginEmbedderPolicy: false, frameguard: { action: 'deny' } }));
   app.enableCors({ origin: config.get('corsOrigin') });
 

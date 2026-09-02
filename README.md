@@ -82,6 +82,55 @@ on a prompt.
 See [`docs/architecture/pipeline_architecture.md`](docs/architecture/pipeline_architecture.md)
 for the full pipeline reference.
 
+## Dependency versions
+
+Every version a generated project uses lives in one map: `lib/versions.js`.
+
+**`BASELINE`** is the set this scaffolder has actually built, linted, tested and
+run in a container. It is what you get by default, so a fresh scaffold is
+reproducible and known-good.
+
+**`--latest`** resolves the current `latest` dist-tag from npm at scaffold time
+instead, so a project started two years from now is current without waiting for
+a release of this package:
+
+```bash
+npx laplateforme-starter my-app --latest
+```
+
+**`CONSTRAINED`** is the part that makes `--latest` safe. Some packages must not
+follow latest, because the newest release is known to break a generated project.
+Each ceiling carries its reason:
+
+| Package      | Held at | Why                                                                                                                                          |
+| ------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eslint`     | 9.x     | `eslint-plugin-react`'s peer range stops at `^9.7`, so ESLint 10 fails to install without `--legacy-peer-deps`.                              |
+| `prisma`     | 6.x     | Prisma 7's client generator emits TypeScript only, so the JavaScript backends would need a compile step to import their own database client. |
+| `@nestjs/*`  | 11.x    | NestJS 12 is ESM-only, which needs the template converted to ESM and a Jest ESM setup.                                                       |
+| `typescript` | 6.0.x   | Three peer ranges must intersect: `@nestjs/schematics` needs `>=6`, `ts-jest` needs `<7`, `typescript-eslint` needs `<6.1`.                  |
+
+`--latest` reports exactly what it updated and what it held back, and it also
+skips prereleases — npm's `latest` tag is not always a stable release. While
+writing this, Prisma had `8.0.0-rc.12` sitting on `latest`.
+
+If the registry is unreachable or slow, `--latest` degrades to the baseline
+rather than failing the scaffold.
+
+### Keeping the baseline fresh
+
+```bash
+npm run versions:report
+```
+
+Shows which baselines have fallen behind, and — more usefully — which ceilings
+now have a newer major behind them and might be liftable.
+
+A weekly **dependency canary** (`.github/workflows/dependency-canary.yml`) runs
+the smoke matrix with `--latest` and files an issue when an upstream release
+breaks a generated project. That is what stops this list going stale: breakage
+surfaces in this repository within a week, not in someone's first five minutes
+with the tool.
+
 ## Design decisions worth knowing
 
 **`package-lock.json` is committed.** `npm ci` cannot run without it, so
@@ -123,9 +172,11 @@ A scaffolder is only as good as the projects it produces, so this repository
 tests the output rather than the templates:
 
 ```bash
-npm test          # 473 assertions across all 45 wizard combinations
-npm run smoke     # scaffold 7 real projects, run THEIR gates against them
-npm run smoke:quick
+npm test               # 535 assertions across all 45 wizard combinations
+npm run smoke          # scaffold 8 real projects, run THEIR gates against them
+npm run smoke -- --latest   # …against today's npm releases instead
+npm run versions:report
+npm run check:actions
 ```
 
 `scripts/smoke.js` generates each project, then runs its `lint`, `format:check`,
@@ -154,6 +205,7 @@ database, and shut down cleanly on `SIGTERM` with exit code 0.
 bin/cli.js              Argument parsing and orchestration
 lib/
 ├── constants.js        Ports, Node version, valid choices
+├── versions.js         Every dependency version + the ceilings, with reasons
 ├── options.js          Validation and the single normalised options shape
 ├── prompts.js          Interactive wizard
 ├── scaffold.js         Writes a project to disk
@@ -166,7 +218,10 @@ lib/
     ├── config.js       Playwright, .env, gitleaks
     └── docs.js         The generated project's README
 templates/              Files copied verbatim into generated projects
-scripts/smoke.js        Matrix smoke test
+scripts/
+├── smoke.js            Matrix smoke test (add --latest for the canary mode)
+├── versions-report.js  Drift between the baseline and npm today
+└── check-actions.js    Resolves every action reference in the generated workflow
 tests/                  Unit tests for the generators
 ```
 

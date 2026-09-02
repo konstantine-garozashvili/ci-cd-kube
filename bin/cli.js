@@ -8,6 +8,7 @@ const { validateProjectName, buildOptions } = require('../lib/options');
 const { BACKENDS, FRONTENDS, DATABASES } = require('../lib/constants');
 const { isEffectivelyEmpty } = require('../lib/fs-utils');
 const { runWizard, confirmOverwrite } = require('../lib/prompts');
+const { resolveVersions } = require('../lib/versions');
 const {
   scaffold,
   initialiseGit,
@@ -33,6 +34,8 @@ ${colors.bright}Options${colors.reset}
       --no-install      Skip npm install
       --no-git          Skip git init and the initial commit
       --force           Scaffold into a non-empty directory without asking
+      --latest          Resolve current dependency versions from npm instead of
+                        the tested baseline (see "Dependency versions" in README)
   -v, --version         Print the version
   -h, --help            Show this message
 
@@ -50,6 +53,7 @@ function parseArgs(argv) {
     install: true,
     git: true,
     force: false,
+    latest: false,
     help: false,
     version: false,
   };
@@ -69,6 +73,8 @@ function parseArgs(argv) {
       flags.git = false;
     } else if (arg === '--force') {
       flags.force = true;
+    } else if (arg === '--latest') {
+      flags.latest = true;
     } else if (arg.startsWith('--backend=')) {
       choices.backend = arg.slice('--backend='.length);
     } else if (arg.startsWith('--frontend=')) {
@@ -115,7 +121,7 @@ function nextSteps(options) {
     }${colors.reset}`
   );
   lines.push(
-    `  ${n++}. ${colors.cyan}npm test && npm run test:e2e${colors.reset}${colors.dim}   verify everything passes${colors.reset}`
+    `  ${n}. ${colors.cyan}npm test && npm run test:e2e${colors.reset}${colors.dim}   verify everything passes${colors.reset}`
   );
 
   return `
@@ -176,6 +182,37 @@ async function main() {
 
   const options = buildOptions({ targetPath, name: answers.name, backend, frontend, database });
 
+  if (flags.latest) {
+    console.log(`\n${colors.cyan}🔎 Resolving current versions from npm…${colors.reset}`);
+  }
+
+  const resolved = await resolveVersions({ latest: flags.latest });
+  options.versions = resolved.versions;
+
+  if (flags.latest) {
+    if (resolved.updated.length) {
+      console.log(success(`Updated ${resolved.updated.length} package(s) past the tested baseline.`));
+      resolved.updated.forEach((line) => console.log(`      ${colors.dim}${line}${colors.reset}`));
+    } else {
+      console.log(success('Baseline already matches the current releases.'));
+    }
+
+    if (resolved.held.length) {
+      console.log(
+        warning(`Held ${resolved.held.length} package(s) at the tested version — a newer release is known to break generated projects:`)
+      );
+      resolved.held.forEach((line) => console.log(`      ${colors.dim}${line}${colors.reset}`));
+    }
+
+    if (resolved.failed.length) {
+      console.log(warning(`Could not reach npm for ${resolved.failed.length} package(s); those kept the tested version.`));
+    }
+
+    console.log(
+      `  ${colors.dim}These versions are newer than what this scaffolder last verified. If something fails, re-run without --latest.${colors.reset}`
+    );
+  }
+
   if (!isEffectivelyEmpty(targetPath) && !flags.force) {
     if (!interactive) {
       throw new Error(
@@ -207,12 +244,10 @@ async function main() {
   const wantsGit = interactive ? answers.git : flags.git;
   const gitReady = wantsGit ? initialiseGit(targetPath, log) : false;
 
-  let installed = false;
   const wantsInstall = interactive ? answers.install : flags.install;
   if (wantsInstall) {
     console.log(`\n${colors.cyan}📦 Installing dependencies…${colors.reset}\n`);
-    installed = installDependencies(targetPath, log);
-    if (installed) {
+    if (installDependencies(targetPath, log)) {
       console.log(success('Dependencies installed.'));
       if (normaliseFormatting(targetPath, log)) {
         console.log(success('Formatted the project with Prettier.'));

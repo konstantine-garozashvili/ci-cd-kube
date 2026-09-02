@@ -13,37 +13,56 @@ const ROUTES: Route[] = [
   { id: 'btn-echo', path: '/api/echo', method: 'POST', label: 'POST /api/echo' },
 ];
 
+/**
+ * Plain async function that touches no React state, so the mount effect can
+ * await it and update state once instead of calling setState synchronously in
+ * the effect body — which triggers cascading renders.
+ */
+async function requestRoute(route: Route): Promise<string> {
+  try {
+    const init: RequestInit = { method: route.method };
+    if (route.method === 'POST') {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify({
+        message: 'Hello from the Next.js frontend!',
+        timestamp: new Date().toISOString(),
+      });
+    }
+    const res = await fetch(route.path, init);
+    const data = await res.json();
+    return `// HTTP ${res.status} OK\n${JSON.stringify(data, null, 2)}`;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return `// Connection error on ${route.path}:\n${message}`;
+  }
+}
+
 export default function Home() {
-  const [activeRoute, setActiveRoute] = useState('/healthz');
+  const [activeRoute, setActiveRoute] = useState(ROUTES[0].path);
   const [response, setResponse] = useState('Loading endpoint data...');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    requestRoute(ROUTES[0]).then((body) => {
+      if (!cancelled) {
+        setResponse(body);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchRoute = useCallback(async (route: Route) => {
     setActiveRoute(route.path);
     setLoading(true);
-    try {
-      const init: RequestInit = { method: route.method };
-      if (route.method === 'POST') {
-        init.headers = { 'Content-Type': 'application/json' };
-        init.body = JSON.stringify({
-          message: 'Hello from the Next.js frontend!',
-          timestamp: new Date().toISOString(),
-        });
-      }
-      const res = await fetch(route.path, init);
-      const data = await res.json();
-      setResponse(`// HTTP ${res.status} OK\n${JSON.stringify(data, null, 2)}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setResponse(`// Connection error on ${route.path}:\n${message}`);
-    } finally {
-      setLoading(false);
-    }
+    setResponse(await requestRoute(route));
+    setLoading(false);
   }, []);
-
-  useEffect(() => {
-    fetchRoute(ROUTES[0]);
-  }, [fetchRoute]);
 
   return (
     <div className="container">

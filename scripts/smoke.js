@@ -208,6 +208,7 @@ function runCase(config, workDir, options) {
       config.id,
       '--defaults',
       '--no-git',
+      ...(options.latest ? ['--latest'] : []),
       `--backend=${config.backend}`,
       `--frontend=${config.frontend}`,
       `--database=${config.database}`,
@@ -285,6 +286,9 @@ function main() {
     quick: argv.includes('--quick'),
     keep: argv.includes('--keep'),
     e2e: argv.includes('--e2e'),
+    // Scaffolds against the current npm releases instead of the tested
+    // baseline. The weekly canary uses this to find upstream breakage early.
+    latest: argv.includes('--latest'),
     only: (argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length),
   };
 
@@ -312,6 +316,12 @@ function main() {
       cases.length === 1 ? '' : 's'
     } in ${workDir})${colors.reset}`
   );
+
+  if (options.latest) {
+    log(
+      `${colors.yellow}Resolving dependencies from npm rather than the tested baseline.${colors.reset}`
+    );
+  }
 
   const started = Date.now();
   const results = cases.map((config) => runCase(config, workDir, options));

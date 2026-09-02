@@ -1,34 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import './App.css';
 
-// Empty by default: requests go to this origin and Vite (dev) or nginx (prod) proxies them to the API.
+// Empty by default: requests go to this origin and Vite (dev) or nginx (prod)
+// proxies them to the API.
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 const API_LABEL = API_BASE || 'same-origin proxy';
 
-export default function App() {
-  const [activeRoute, setActiveRoute] = useState('/healthz');
-  const [response, setResponse] = useState('Loading endpoint data...');
-  const [loading, setLoading] = useState(false);
+const ROUTES = [
+  { id: 'btn-health', path: '/healthz', method: 'GET', label: 'GET /healthz' },
+  { id: 'btn-ready', path: '/ready', method: 'GET', label: 'GET /ready' },
+  { id: 'btn-info', path: '/api/info', method: 'GET', label: 'GET /api/info' },
+  { id: 'btn-metrics', path: '/api/metrics', method: 'GET', label: 'GET /api/metrics' },
+  { id: 'btn-echo', path: '/api/echo', method: 'POST', label: 'POST /api/echo' },
+];
 
-  const fetchRoute = async (path, method = 'GET', body = null) => {
-    setActiveRoute(path);
-    setLoading(true);
-    setResponse(`// Requesting ${method} ${API_BASE}${path}...`);
-    try {
-      const opts = { method, headers: { 'Content-Type': 'application/json' } };
-      if (body) opts.body = JSON.stringify(body);
-      const res = await fetch(`${API_BASE}${path}`, opts);
-      const data = await res.json();
-      setResponse(`// HTTP ${res.status} OK\n` + JSON.stringify(data, null, 2));
-    } catch (err) {
-      setResponse(`// Connection Error to ${API_BASE}${path}:\n` + err.message);
-    } finally {
-      setLoading(false);
+/**
+ * Plain async function that touches no React state, so the mount effect can
+ * await it and update state once instead of calling setState synchronously in
+ * the effect body — which triggers cascading renders.
+ */
+async function requestRoute(route) {
+  try {
+    const init = { method: route.method };
+    if (route.method === 'POST') {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify({
+        message: 'Hello from the React frontend!',
+        timestamp: new Date().toISOString(),
+      });
     }
-  };
+
+    const res = await fetch(`${API_BASE}${route.path}`, init);
+    const data = await res.json();
+    return `// HTTP ${res.status} OK\n${JSON.stringify(data, null, 2)}`;
+  } catch (err) {
+    return `// Connection error on ${route.path}:\n${err.message}`;
+  }
+}
+
+export default function App() {
+  const [activeRoute, setActiveRoute] = useState(ROUTES[0].path);
+  const [response, setResponse] = useState('Loading endpoint data...');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRoute('/healthz');
+    let cancelled = false;
+
+    requestRoute(ROUTES[0]).then((body) => {
+      if (!cancelled) {
+        setResponse(body);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleClick = useCallback(async (route) => {
+    setActiveRoute(route.path);
+    setLoading(true);
+    setResponse(await requestRoute(route));
+    setLoading(false);
   }, []);
 
   return (
@@ -36,9 +70,9 @@ export default function App() {
       <div className="card" id="app-card">
         <div className="header">
           <h1 id="app-title">🏛️ La Plateforme Fullstack Starter</h1>
-          <p className="subtitle">React + Vite Frontend connected to Backend API ({API_LABEL})</p>
+          <p className="subtitle">React + Vite frontend connected to Backend API ({API_LABEL})</p>
           <div className="status-badge" id="status-badge">
-            <span className="pulse"></span> System Operational
+            <span className="pulse" /> System Operational
           </div>
         </div>
 
@@ -68,46 +102,16 @@ export default function App() {
           </div>
 
           <div className="route-buttons">
-            <button
-              className={`route-btn ${activeRoute === '/healthz' ? 'active' : ''}`}
-              id="btn-health"
-              onClick={() => fetchRoute('/healthz')}
-            >
-              GET /healthz
-            </button>
-            <button
-              className={`route-btn ${activeRoute === '/ready' ? 'active' : ''}`}
-              id="btn-ready"
-              onClick={() => fetchRoute('/ready')}
-            >
-              GET /ready
-            </button>
-            <button
-              className={`route-btn ${activeRoute === '/api/info' ? 'active' : ''}`}
-              id="btn-info"
-              onClick={() => fetchRoute('/api/info')}
-            >
-              GET /api/info
-            </button>
-            <button
-              className={`route-btn ${activeRoute === '/api/metrics' ? 'active' : ''}`}
-              id="btn-metrics"
-              onClick={() => fetchRoute('/api/metrics')}
-            >
-              GET /api/metrics
-            </button>
-            <button
-              className={`route-btn ${activeRoute === '/api/echo' ? 'active' : ''}`}
-              id="btn-echo"
-              onClick={() =>
-                fetchRoute('/api/echo', 'POST', {
-                  message: 'Hello from React Frontend!',
-                  timestamp: new Date().toISOString(),
-                })
-              }
-            >
-              POST /api/echo
-            </button>
+            {ROUTES.map((route) => (
+              <button
+                key={route.id}
+                id={route.id}
+                className={`route-btn ${activeRoute === route.path ? 'active' : ''}`}
+                onClick={() => handleClick(route)}
+              >
+                {route.label}
+              </button>
+            ))}
           </div>
 
           <pre className="response-box" id="response-output">
