@@ -3,9 +3,9 @@
   "version": "2.1.0",
   "description": "Scaffold a production-ready Node.js project: security gates, CI/CD, tests and containers that work from the first commit",
   "bin": {
-    "laplateforme-starter": "./bin/cli.js",
-    "laplateforme": "./bin/cli.js",
-    "create-laplateforme": "./bin/cli.js"
+    "laplateforme-starter": "bin/cli.js",
+    "laplateforme": "bin/cli.js",
+    "create-laplateforme": "bin/cli.js"
   },
   "files": [
     "bin",
