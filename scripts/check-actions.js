@@ -61,8 +61,11 @@ async function resolves(ref) {
     if (res.ok) {
       return { ok: true, kind };
     }
-    if (res.status === 403) {
-      return { ok: false, reason: 'rate limited — set GITHUB_TOKEN and retry' };
+    // 403/429 means the check could not run, not that the ref is missing.
+    // Failing the build on it would turn an unauthenticated local run into a
+    // false alarm, so it is reported separately from a genuine miss.
+    if (res.status === 403 || res.status === 429) {
+      return { skipped: true, reason: 'rate limited — set GITHUB_TOKEN to check this one' };
     }
   }
 
@@ -74,11 +77,15 @@ async function main() {
   console.log(`Checking ${refs.length} action references from the generated workflow…\n`);
 
   const failures = [];
+  const skipped = [];
 
   for (const ref of refs) {
     const result = await resolves(ref);
     if (result.ok) {
       console.log(`  ✔ ${ref}`);
+    } else if (result.skipped) {
+      console.log(`  ? ${ref} — ${result.reason}`);
+      skipped.push(ref);
     } else {
       console.log(`  ✗ ${ref} — ${result.reason}`);
       failures.push(`${ref}: ${result.reason}`);
@@ -89,6 +96,13 @@ async function main() {
     console.error(`\n${failures.length} action reference(s) do not resolve:`);
     failures.forEach((failure) => console.error(`  ${failure}`));
     process.exit(1);
+  }
+
+  if (skipped.length > 0) {
+    console.log(
+      `\n${refs.length - skipped.length} of ${refs.length} resolved; ${skipped.length} could not be checked without a token.`
+    );
+    return;
   }
 
   console.log('\nAll action references resolve.');
