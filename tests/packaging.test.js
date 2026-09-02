@@ -33,6 +33,10 @@ describe('published package contents', () => {
 
   const templateFiles = listTemplateFiles(path.join(REPO_ROOT, 'templates'), 'templates');
 
+  it('ships the brand asset the landing pages reference', () => {
+    expect(shipped.has('templates/shared/brand/logo.png')).toBe(true);
+  });
+
   it('ships every file under templates/', () => {
     const missing = templateFiles.filter((file) => !shipped.has(file));
     expect(missing).toEqual([]);

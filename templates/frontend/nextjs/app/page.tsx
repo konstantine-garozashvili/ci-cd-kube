@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { runEnvironmentCheck, type EnvironmentReport } from './environmentCheck';
 
 type Route = { id: string; path: string; method: 'GET' | 'POST'; label: string };
 
@@ -41,9 +42,16 @@ export default function Home() {
   const [activeRoute, setActiveRoute] = useState(ROUTES[0].path);
   const [response, setResponse] = useState('Loading endpoint data...');
   const [loading, setLoading] = useState(true);
+  const [env, setEnv] = useState<EnvironmentReport | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    runEnvironmentCheck().then((result) => {
+      if (!cancelled) {
+        setEnv(result);
+      }
+    });
 
     requestRoute(ROUTES[0]).then((body) => {
       if (!cancelled) {
@@ -68,30 +76,45 @@ export default function Home() {
     <div className="container">
       <div className="card" id="app-card">
         <div className="header">
-          <h1 id="app-title">🏛️ La Plateforme Fullstack Starter</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a static
+              7KB logo does not need the Image component's optimisation
+              pipeline, which would pull in a loader for one asset. */}
+          <img className="brand-logo" src="/logo.png" alt="La Plateforme" />
+          <h1 id="app-title">Fullstack Starter</h1>
           <p className="subtitle">Next.js App Router frontend, API proxied same-origin</p>
-          <div className="status-badge" id="status-badge">
-            <span className="pulse" /> System Operational
+          <div
+            className={`status-badge ${env ? (env.ok ? 'is-ok' : 'is-bad') : 'is-pending'}`}
+            id="status-badge"
+          >
+            {env ? (
+              env.ok ? (
+                <>
+                  <span className="pulse" /> Environment is working
+                </>
+              ) : (
+                <>⚠ Environment needs attention</>
+              )
+            ) : (
+              <>Checking environment…</>
+            )}
           </div>
         </div>
 
-        <div className="grid">
-          <div className="item">
-            <label>Backend API</label>
-            <div id="backend-status">Connected</div>
-          </div>
-          <div className="item">
-            <label>Frontend Client</label>
-            <div id="frontend-status">Next.js App Router</div>
-          </div>
-          <div className="item">
-            <label>Security</label>
-            <div id="security-status">Helmet + CORS</div>
-          </div>
-          <div className="item">
-            <label>Testing Suite</label>
-            <div id="testing-status">Unit + Integ + E2E</div>
-          </div>
+        <div className="grid" id="env-checks">
+          {(env ? env.rows : []).map((row) => (
+            <div className={`item ${row.ok ? 'ok' : 'bad'}`} key={row.label}>
+              <label>
+                {row.ok ? '✅' : '❌'} {row.label}
+              </label>
+              <div>{row.detail}</div>
+            </div>
+          ))}
+          {!env && (
+            <div className="item">
+              <label>Running checks…</label>
+              <div>probing /healthz, /ready and /api/info</div>
+            </div>
+          )}
         </div>
 
         <div className="tester-section">
