@@ -35,6 +35,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      # gitleaks reads pull request commits through the API when one is in
+      # scope; harmless on a tag build and required everywhere else.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:

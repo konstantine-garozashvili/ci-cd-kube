@@ -29,6 +29,10 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      # gitleaks lists the pull request's commits through the API, which needs
+      # this scope. Without it the action fails with "Resource not accessible
+      # by integration" on every pull request.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
