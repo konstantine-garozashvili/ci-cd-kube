@@ -55,10 +55,21 @@ function exec(command, args, cwd, { capture = true } = {}) {
     cwd,
     encoding: 'utf-8',
     stdio: capture ? 'pipe' : 'inherit',
+    // On Windows npm is npm.cmd, which spawnSync cannot execute directly —
+    // without a shell every command fails with ENOENT and no output, so the
+    // report reads as though each gate ran and failed on its own merits.
+    shell: process.platform === 'win32',
     env: { ...process.env, CI: 'true', npm_config_fund: 'false', npm_config_audit: 'false' },
   });
 
-  const output = capture ? `${result.stdout || ''}${result.stderr || ''}` : '';
+  let output = capture ? `${result.stdout || ''}${result.stderr || ''}` : '';
+
+  // A spawn failure produces no stdout at all. Surfacing it here is the
+  // difference between "npm run lint failed:" and a usable diagnosis.
+  if (result.error) {
+    output = `${output}${output ? '\n' : ''}could not run ${command}: ${result.error.message}`;
+  }
+
   return { ok: result.status === 0, status: result.status, output, error: result.error };
 }
 
