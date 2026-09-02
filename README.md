@@ -197,7 +197,13 @@ generated E2E suite against the running containers.
 
 Every shape in that matrix has been built and booted locally: images run as
 non-root, report `healthy` to Docker, serve `/ready` as `UP` against a live
-database, and shut down cleanly on `SIGTERM` with exit code 0.
+database, and drain in-flight requests on `SIGTERM` before disconnecting.
+
+The Express and Hono images exit 0 after draining. NestJS re-raises the signal
+once its shutdown hooks finish, so it exits 143 — the conventional code for a
+process terminated by a signal, and what Kubernetes expects. All three log the
+drain, so a container that was killed outright is distinguishable from one that
+closed cleanly.
 
 ## Repository layout
 
