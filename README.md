@@ -1,5 +1,9 @@
 # 🏛️ laplateforme-starter
 
+[![npm version](https://img.shields.io/npm/v/laplateforme-starter)](https://www.npmjs.com/package/laplateforme-starter)
+[![CI](https://github.com/konstantine-garozashvili/ci-cd-kube/actions/workflows/ci.yml/badge.svg)](https://github.com/konstantine-garozashvili/ci-cd-kube/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Scaffold a production-ready Node.js project whose security gates, CI/CD
 pipeline, tests and container images **work from the first commit**.
 
